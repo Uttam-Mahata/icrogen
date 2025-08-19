@@ -60,6 +60,7 @@ func (r *sessionRepository) Delete(id uint) error {
 // SemesterOfferingRepository interface for semester offering operations
 type SemesterOfferingRepository interface {
 	Create(offering *models.SemesterOffering) error
+	GetAll() ([]models.SemesterOffering, error)
 	GetByID(id uint) (*models.SemesterOffering, error)
 	GetBySession(sessionID uint) ([]models.SemesterOffering, error)
 	GetByProgrammeDepartmentSession(programmeID, departmentID, sessionID uint) ([]models.SemesterOffering, error)
@@ -80,6 +81,15 @@ func (r *semesterOfferingRepository) Create(offering *models.SemesterOffering) e
 	return r.db.Create(offering).Error
 }
 
+func (r *semesterOfferingRepository) GetAll() ([]models.SemesterOffering, error) {
+	var offerings []models.SemesterOffering
+	err := r.db.Preload("Programme").
+		Preload("Department").
+		Preload("Session").
+		Find(&offerings).Error
+	return offerings, err
+}
+
 func (r *semesterOfferingRepository) GetByID(id uint) (*models.SemesterOffering, error) {
 	var offering models.SemesterOffering
 	err := r.db.Preload("Programme").
@@ -96,6 +106,7 @@ func (r *semesterOfferingRepository) GetBySession(sessionID uint) ([]models.Seme
 	var offerings []models.SemesterOffering
 	err := r.db.Preload("Programme").
 		Preload("Department").
+		Preload("Session").
 		Where("session_id = ?", sessionID).
 		Find(&offerings).Error
 	return offerings, err

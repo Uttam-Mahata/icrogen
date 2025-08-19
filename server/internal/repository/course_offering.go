@@ -13,10 +13,12 @@ type CourseOfferingRepository interface {
 	GetBySemesterOffering(semesterOfferingID uint) ([]models.CourseOffering, error)
 	Update(offering *models.CourseOffering) error
 	Delete(id uint) error
-	AssignTeacher(courseOfferingID, teacherID uint) error
-	RemoveTeacher(courseOfferingID, teacherID uint) error
-	AssignRoom(courseOfferingID, roomID uint, priority int) error
-	RemoveRoom(courseOfferingID, roomID uint) error
+	AssignTeacher(assignment *models.TeacherAssignment) error
+	RemoveTeacherAssignment(assignmentID uint) error
+	AssignRoom(assignment *models.RoomAssignment) error
+	RemoveRoomAssignment(assignmentID uint) error
+	GetTeacherAssignments(courseOfferingID uint) ([]models.TeacherAssignment, error)
+	GetRoomAssignments(courseOfferingID uint) ([]models.RoomAssignment, error)
 }
 
 type courseOfferingRepository struct {
@@ -67,30 +69,34 @@ func (r *courseOfferingRepository) Delete(id uint) error {
 	return r.db.Delete(&models.CourseOffering{}, id).Error
 }
 
-func (r *courseOfferingRepository) AssignTeacher(courseOfferingID, teacherID uint) error {
-	assignment := &models.TeacherAssignment{
-		CourseOfferingID: courseOfferingID,
-		TeacherID:        teacherID,
-		Weight:           1,
-	}
+func (r *courseOfferingRepository) AssignTeacher(assignment *models.TeacherAssignment) error {
 	return r.db.Create(assignment).Error
 }
 
-func (r *courseOfferingRepository) RemoveTeacher(courseOfferingID, teacherID uint) error {
-	return r.db.Where("course_offering_id = ? AND teacher_id = ?", 
-		courseOfferingID, teacherID).Delete(&models.TeacherAssignment{}).Error
+func (r *courseOfferingRepository) RemoveTeacherAssignment(assignmentID uint) error {
+	return r.db.Delete(&models.TeacherAssignment{}, assignmentID).Error
 }
 
-func (r *courseOfferingRepository) AssignRoom(courseOfferingID, roomID uint, priority int) error {
-	assignment := &models.RoomAssignment{
-		CourseOfferingID: courseOfferingID,
-		RoomID:           roomID,
-		Priority:         priority,
-	}
+func (r *courseOfferingRepository) AssignRoom(assignment *models.RoomAssignment) error {
 	return r.db.Create(assignment).Error
 }
 
-func (r *courseOfferingRepository) RemoveRoom(courseOfferingID, roomID uint) error {
-	return r.db.Where("course_offering_id = ? AND room_id = ?", 
-		courseOfferingID, roomID).Delete(&models.RoomAssignment{}).Error
+func (r *courseOfferingRepository) RemoveRoomAssignment(assignmentID uint) error {
+	return r.db.Delete(&models.RoomAssignment{}, assignmentID).Error
+}
+
+func (r *courseOfferingRepository) GetTeacherAssignments(courseOfferingID uint) ([]models.TeacherAssignment, error) {
+	var assignments []models.TeacherAssignment
+	err := r.db.Preload("Teacher").
+		Where("course_offering_id = ?", courseOfferingID).
+		Find(&assignments).Error
+	return assignments, err
+}
+
+func (r *courseOfferingRepository) GetRoomAssignments(courseOfferingID uint) ([]models.RoomAssignment, error) {
+	var assignments []models.RoomAssignment
+	err := r.db.Preload("Room").
+		Where("course_offering_id = ?", courseOfferingID).
+		Find(&assignments).Error
+	return assignments, err
 }
