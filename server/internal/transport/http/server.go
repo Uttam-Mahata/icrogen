@@ -43,11 +43,21 @@ func (s *Server) setupRoutes() {
 	teacherService := service.NewTeacherService(teacherRepo, departmentRepo)
 	subjectService := service.NewSubjectService(subjectRepo, programmeRepo, departmentRepo, subjectTypeRepo)
 	subjectTypeService := service.NewSubjectTypeService(subjectTypeRepo)
+	roomService := service.NewRoomService(roomRepo, departmentRepo)
+	sessionService := service.NewSessionService(sessionRepo)
+	semesterOfferingService := service.NewSemesterOfferingService(semesterOfferingRepo, programmeRepo, departmentRepo, sessionRepo)
+	courseOfferingService := service.NewCourseOfferingService(courseOfferingRepo, subjectRepo, teacherRepo, roomRepo)
 	routineService := service.NewRoutineGenerationService(scheduleRepo, semesterOfferingRepo, courseOfferingRepo, teacherRepo, roomRepo)
 
 	// Initialize handlers
 	programmeHandler := handlers.NewProgrammeHandler(programmeService)
 	departmentHandler := handlers.NewDepartmentHandler(departmentService)
+	teacherHandler := handlers.NewTeacherHandler(teacherService)
+	subjectHandler := handlers.NewSubjectHandler(subjectService)
+	subjectTypeHandler := handlers.NewSubjectTypeHandler(subjectTypeService)
+	roomHandler := handlers.NewRoomHandler(roomService)
+	sessionHandler := handlers.NewSessionHandler(sessionService)
+	semesterOfferingHandler := handlers.NewSemesterOfferingHandler(semesterOfferingService, courseOfferingService)
 	routineHandler := handlers.NewRoutineHandler(routineService)
 
 	// Setup middleware
@@ -77,10 +87,86 @@ func (s *Server) setupRoutes() {
 			departments.GET("/:id", departmentHandler.GetDepartment)
 			departments.PUT("/:id", departmentHandler.UpdateDepartment)
 			departments.DELETE("/:id", departmentHandler.DeleteDepartment)
+			departments.GET("/:id/subjects", subjectHandler.GetSubjectsByDepartment)
+			departments.GET("/:id/teachers", teacherHandler.GetTeachersByDepartment)
 		}
 
-		// Programme-specific department routes
-		api.GET("/programmes/:programme_id/departments", departmentHandler.GetDepartmentsByProgramme)
+		// Teacher routes
+		teachers := api.Group("/teachers")
+		{
+			teachers.POST("", teacherHandler.CreateTeacher)
+			teachers.GET("", teacherHandler.GetAllTeachers)
+			teachers.GET("/:id", teacherHandler.GetTeacher)
+			teachers.PUT("/:id", teacherHandler.UpdateTeacher)
+			teachers.DELETE("/:id", teacherHandler.DeleteTeacher)
+			teachers.GET("/department/:department_id", teacherHandler.GetTeachersByDepartment)
+		}
+
+		// Subject routes
+		subjects := api.Group("/subjects")
+		{
+			subjects.POST("", subjectHandler.CreateSubject)
+			subjects.GET("", subjectHandler.GetAllSubjects)
+			subjects.GET("/:id", subjectHandler.GetSubject)
+			subjects.PUT("/:id", subjectHandler.UpdateSubject)
+			subjects.DELETE("/:id", subjectHandler.DeleteSubject)
+			subjects.GET("/department/:department_id", subjectHandler.GetSubjectsByDepartment)
+			subjects.GET("/filter", subjectHandler.GetSubjectsByProgrammeAndDepartment)
+		}
+
+		// Subject Type routes
+		subjectTypes := api.Group("/subject-types")
+		{
+			subjectTypes.POST("", subjectTypeHandler.CreateSubjectType)
+			subjectTypes.GET("", subjectTypeHandler.GetAllSubjectTypes)
+			subjectTypes.GET("/:id", subjectTypeHandler.GetSubjectType)
+			subjectTypes.PUT("/:id", subjectTypeHandler.UpdateSubjectType)
+			subjectTypes.DELETE("/:id", subjectTypeHandler.DeleteSubjectType)
+		}
+
+		// Room routes
+		rooms := api.Group("/rooms")
+		{
+			rooms.POST("", roomHandler.CreateRoom)
+			rooms.GET("", roomHandler.GetAllRooms)
+			rooms.GET("/:id", roomHandler.GetRoom)
+			rooms.PUT("/:id", roomHandler.UpdateRoom)
+			rooms.DELETE("/:id", roomHandler.DeleteRoom)
+			rooms.GET("/type", roomHandler.GetRoomsByType)
+			rooms.GET("/department/:department_id", roomHandler.GetRoomsByDepartment)
+			rooms.GET("/availability", roomHandler.CheckRoomAvailability)
+		}
+
+		// Session routes
+		sessions := api.Group("/sessions")
+		{
+			sessions.POST("", sessionHandler.CreateSession)
+			sessions.GET("", sessionHandler.GetAllSessions)
+			sessions.GET("/:id", sessionHandler.GetSession)
+			sessions.PUT("/:id", sessionHandler.UpdateSession)
+			sessions.DELETE("/:id", sessionHandler.DeleteSession)
+			sessions.GET("/year", sessionHandler.GetSessionsByYear)
+		}
+
+		// Semester Offering routes
+		semesterOfferings := api.Group("/semester-offerings")
+		{
+			semesterOfferings.GET("", semesterOfferingHandler.GetAllSemesterOfferings)
+			semesterOfferings.POST("", semesterOfferingHandler.CreateSemesterOffering)
+			semesterOfferings.GET("/session/:session_id", semesterOfferingHandler.GetSemesterOfferingsBySession)
+			semesterOfferings.GET("/:id", semesterOfferingHandler.GetSemesterOffering)
+			semesterOfferings.PUT("/:id", semesterOfferingHandler.UpdateSemesterOffering)
+			semesterOfferings.DELETE("/:id", semesterOfferingHandler.DeleteSemesterOffering)
+			
+			// Course offering management within a semester offering
+			semesterOfferings.GET("/:id/course-offerings", semesterOfferingHandler.GetCourseOfferings)
+			semesterOfferings.POST("/:id/course-offerings", semesterOfferingHandler.AddCourseOffering)
+			semesterOfferings.DELETE("/:id/course-offerings/:course_offering_id", semesterOfferingHandler.RemoveCourseOffering)
+			semesterOfferings.POST("/:id/course-offerings/:course_offering_id/teachers", semesterOfferingHandler.AssignTeacherToCourse)
+			semesterOfferings.DELETE("/:id/course-offerings/:course_offering_id/teachers/:teacher_id", semesterOfferingHandler.RemoveTeacherFromCourse)
+			semesterOfferings.POST("/:id/course-offerings/:course_offering_id/rooms", semesterOfferingHandler.AssignRoomToCourse)
+			semesterOfferings.DELETE("/:id/course-offerings/:course_offering_id/rooms/:room_id", semesterOfferingHandler.RemoveRoomFromCourse)
+		}
 
 		// Routine generation routes
 		routines := api.Group("/routines")

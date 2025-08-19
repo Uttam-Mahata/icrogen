@@ -45,16 +45,15 @@ type Department struct {
 
 // Teacher represents a faculty member
 type Teacher struct {
-	ID                 uint                `json:"id" gorm:"primaryKey;autoIncrement"`
-	Name               string              `json:"name" gorm:"type:varchar(255);not null"`
-	Initials           string              `json:"initials" gorm:"type:varchar(10);uniqueIndex"`
-	Email              string              `json:"email" gorm:"type:varchar(255);uniqueIndex"`
-	DepartmentID       uint                `json:"department_id" gorm:"not null"`
-	IsActive           bool                `json:"is_active" gorm:"default:true"`
-	MaxWeeklyLoadSlots int                 `json:"max_weekly_load_slots"`
-	CreatedAt          time.Time           `json:"created_at"`
-	UpdatedAt          time.Time           `json:"updated_at"`
-	DeletedAt          gorm.DeletedAt      `json:"-" gorm:"index"`
+	ID           uint           `json:"id" gorm:"primaryKey;autoIncrement"`
+	Name         string         `json:"name" gorm:"type:varchar(255);not null"`
+	Initials     string         `json:"initials" gorm:"type:varchar(10);uniqueIndex"`
+	Email        string         `json:"email" gorm:"type:varchar(255);uniqueIndex"`
+	DepartmentID uint           `json:"department_id" gorm:"not null"`
+	IsActive     bool           `json:"is_active" gorm:"default:true"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index"`
 	
 	// Relationships
 	Department         Department          `json:"department,omitempty" gorm:"foreignKey:DepartmentID"`

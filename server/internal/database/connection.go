@@ -13,12 +13,31 @@ import (
 
 // Connect establishes a connection to the MySQL database
 func Connect(databaseURL string) (*gorm.DB, error) {
+	return connectWithMigration(databaseURL, true)
+}
+
+// ConnectWithoutMigration establishes a connection to the MySQL database without running migrations
+func ConnectWithoutMigration(databaseURL string) (*gorm.DB, error) {
+	return connectWithMigration(databaseURL, false)
+}
+
+// connectWithMigration is the internal function that handles connection with optional migration
+func connectWithMigration(databaseURL string, runMigrations bool) (*gorm.DB, error) {
 	// Register TLS config for TiDB if the connection string contains tls=tidb
 	if strings.Contains(databaseURL, "tls=tidb") {
 		mysql.RegisterTLSConfig("tidb", &tls.Config{
 			MinVersion: tls.VersionTLS12,
 			ServerName: "gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
 		})
+	}
+	
+	// Ensure parseTime=True is in the connection string for proper datetime parsing
+	if !strings.Contains(databaseURL, "parseTime=") {
+		if strings.Contains(databaseURL, "?") {
+			databaseURL += "&parseTime=True"
+		} else {
+			databaseURL += "?parseTime=True"
+		}
 	}
 	
 	db, err := gorm.Open(mysqlDriver.Open(databaseURL), &gorm.Config{
@@ -28,32 +47,34 @@ func Connect(databaseURL string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	// Auto-migrate the schema
-	err = db.AutoMigrate(
-		&models.Programme{},
-		&models.Department{},
-		&models.Teacher{},
-		&models.SubjectType{},
-		&models.Subject{},
-		&models.Room{},
-		&models.Session{},
-		&models.SemesterDefinition{},
-		&models.SemesterOffering{},
-		&models.CourseOffering{},
-		&models.TeacherAssignment{},
-		&models.RoomAssignment{},
-		&models.TimeSlot{},
-		&models.ScheduleRun{},
-		&models.ScheduleBlock{},
-		&models.ScheduleEntry{},
-	)
-	if err != nil {
-		return nil, err
-	}
+	if runMigrations {
+		// Auto-migrate the schema
+		err = db.AutoMigrate(
+			&models.Programme{},
+			&models.Department{},
+			&models.Teacher{},
+			&models.SubjectType{},
+			&models.Subject{},
+			&models.Room{},
+			&models.Session{},
+			&models.SemesterDefinition{},
+			&models.SemesterOffering{},
+			&models.CourseOffering{},
+			&models.TeacherAssignment{},
+			&models.RoomAssignment{},
+			&models.TimeSlot{},
+			&models.ScheduleRun{},
+			&models.ScheduleBlock{},
+			&models.ScheduleEntry{},
+		)
+		if err != nil {
+			return nil, err
+		}
 
-	// Add indexes for performance and constraints
-	if err := addIndexes(db); err != nil {
-		return nil, err
+		// Add indexes for performance and constraints
+		if err := addIndexes(db); err != nil {
+			return nil, err
+		}
 	}
 
 	return db, nil

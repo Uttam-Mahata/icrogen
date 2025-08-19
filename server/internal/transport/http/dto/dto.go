@@ -29,19 +29,18 @@ type UpdateDepartmentRequest struct {
 }
 
 type CreateTeacherRequest struct {
-	Name               string `json:"name" binding:"required"`
-	Initials           string `json:"initials"`
-	Email              string `json:"email" binding:"required,email"`
-	DepartmentID       uint   `json:"department_id" binding:"required"`
-	MaxWeeklyLoadSlots int    `json:"max_weekly_load_slots" binding:"min=0"`
+	Name         string `json:"name" binding:"required"`
+	Initials     string `json:"initials"`
+	Email        string `json:"email" binding:"required,email"`
+	DepartmentID uint   `json:"department_id" binding:"required"`
 }
 
 type UpdateTeacherRequest struct {
-	Name               string `json:"name" binding:"required"`
-	Initials           string `json:"initials"`
-	Email              string `json:"email" binding:"required,email"`
-	IsActive           *bool  `json:"is_active"`
-	MaxWeeklyLoadSlots int    `json:"max_weekly_load_slots" binding:"min=0"`
+	Name         string `json:"name" binding:"required"`
+	Initials     string `json:"initials"`
+	Email        string `json:"email" binding:"required,email"`
+	DepartmentID uint   `json:"department_id" binding:"required"`
+	IsActive     bool   `json:"is_active"`
 }
 
 type CreateSubjectTypeRequest struct {
@@ -71,7 +70,10 @@ type UpdateSubjectRequest struct {
 	Code             string `json:"code" binding:"required"`
 	Credit           int    `json:"credit" binding:"required,min=1"`
 	ClassLoadPerWeek int    `json:"class_load_per_week" binding:"required,min=1"`
-	IsActive         *bool  `json:"is_active"`
+	ProgrammeID      uint   `json:"programme_id" binding:"required"`
+	DepartmentID     uint   `json:"department_id" binding:"required"`
+	SubjectTypeID    uint   `json:"subject_type_id" binding:"required"`
+	IsActive         bool   `json:"is_active"`
 }
 
 type CreateRoomRequest struct {
@@ -102,6 +104,10 @@ type UpdateSessionRequest struct {
 	Name      string    `json:"name" binding:"required,oneof=SPRING FALL"`
 	StartDate time.Time `json:"start_date" binding:"required"`
 	EndDate   time.Time `json:"end_date" binding:"required"`
+}
+
+type UpdateSemesterOfferingRequest struct {
+	Status string `json:"status" binding:"required,oneof=DRAFT ACTIVE ARCHIVED"`
 }
 
 type CreateSemesterOfferingRequest struct {
@@ -155,4 +161,11 @@ type ErrorResponse struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error"`
 	Code    int    `json:"code,omitempty"`
+}
+
+// Success response
+type SuccessResponse struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
 }

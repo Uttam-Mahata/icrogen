@@ -4,7 +4,6 @@ import (
 	"errors"
 	"icrogen/internal/models"
 	"icrogen/internal/repository"
-	"time"
 )
 
 // SessionService interface for session business logic
@@ -110,6 +109,7 @@ func (s *sessionService) DeleteSession(id uint) error {
 // SemesterOfferingService interface for semester offering business logic
 type SemesterOfferingService interface {
 	CreateSemesterOffering(offering *models.SemesterOffering) error
+	GetAllSemesterOfferings() ([]models.SemesterOffering, error)
 	GetSemesterOfferingByID(id uint) (*models.SemesterOffering, error)
 	GetSemesterOfferingsBySession(sessionID uint) ([]models.SemesterOffering, error)
 	GetSemesterOfferingsByProgrammeDepartmentSession(programmeID, departmentID, sessionID uint) ([]models.SemesterOffering, error)
@@ -187,6 +187,10 @@ func (s *semesterOfferingService) CreateSemesterOffering(offering *models.Semest
 	}
 	
 	return s.semesterOfferingRepo.Create(offering)
+}
+
+func (s *semesterOfferingService) GetAllSemesterOfferings() ([]models.SemesterOffering, error) {
+	return s.semesterOfferingRepo.GetAll()
 }
 
 func (s *semesterOfferingService) GetSemesterOfferingByID(id uint) (*models.SemesterOffering, error) {
