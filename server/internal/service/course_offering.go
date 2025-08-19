@@ -15,8 +15,10 @@ type CourseOfferingService interface {
 	DeleteCourseOffering(id uint) error
 	AssignTeacher(assignment *models.TeacherAssignment) error
 	RemoveTeacherAssignment(assignmentID uint) error
+	RemoveTeacher(courseOfferingID uint, teacherID uint) error
 	AssignRoom(assignment *models.RoomAssignment) error
 	RemoveRoomAssignment(assignmentID uint) error
+	RemoveRoom(courseOfferingID uint, roomID uint) error
 	GetTeacherAssignments(courseOfferingID uint) ([]models.TeacherAssignment, error)
 	GetRoomAssignments(courseOfferingID uint) ([]models.RoomAssignment, error)
 }
@@ -154,6 +156,26 @@ func (s *courseOfferingService) RemoveTeacherAssignment(assignmentID uint) error
 	return s.courseOfferingRepo.RemoveTeacherAssignment(assignmentID)
 }
 
+func (s *courseOfferingService) RemoveTeacher(courseOfferingID uint, teacherID uint) error {
+	if courseOfferingID == 0 || teacherID == 0 {
+		return errors.New("invalid course offering or teacher ID")
+	}
+	
+	// Find the assignment to remove
+	assignments, err := s.courseOfferingRepo.GetTeacherAssignments(courseOfferingID)
+	if err != nil {
+		return err
+	}
+	
+	for _, assignment := range assignments {
+		if assignment.TeacherID == teacherID {
+			return s.courseOfferingRepo.RemoveTeacherAssignment(assignment.ID)
+		}
+	}
+	
+	return errors.New("teacher assignment not found")
+}
+
 func (s *courseOfferingService) AssignRoom(assignment *models.RoomAssignment) error {
 	// Validate assignment data
 	if assignment.CourseOfferingID == 0 {
@@ -195,6 +217,26 @@ func (s *courseOfferingService) RemoveRoomAssignment(assignmentID uint) error {
 		return errors.New("invalid assignment ID")
 	}
 	return s.courseOfferingRepo.RemoveRoomAssignment(assignmentID)
+}
+
+func (s *courseOfferingService) RemoveRoom(courseOfferingID uint, roomID uint) error {
+	if courseOfferingID == 0 || roomID == 0 {
+		return errors.New("invalid course offering or room ID")
+	}
+	
+	// Find the assignment to remove
+	assignments, err := s.courseOfferingRepo.GetRoomAssignments(courseOfferingID)
+	if err != nil {
+		return err
+	}
+	
+	for _, assignment := range assignments {
+		if assignment.RoomID == roomID {
+			return s.courseOfferingRepo.RemoveRoomAssignment(assignment.ID)
+		}
+	}
+	
+	return errors.New("room assignment not found")
 }
 
 func (s *courseOfferingService) GetTeacherAssignments(courseOfferingID uint) ([]models.TeacherAssignment, error) {

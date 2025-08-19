@@ -54,7 +54,9 @@ func (r *sessionRepository) Update(session *models.Session) error {
 }
 
 func (r *sessionRepository) Delete(id uint) error {
-	return r.db.Delete(&models.Session{}, id).Error
+	// Use Unscoped().Delete() for hard delete to avoid unique constraint issues
+	// Or alternatively, we could update the unique constraint to include deleted_at
+	return r.db.Unscoped().Delete(&models.Session{}, id).Error
 }
 
 // SemesterOfferingRepository interface for semester offering operations
