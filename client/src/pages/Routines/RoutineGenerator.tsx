@@ -285,7 +285,7 @@ const RoutineGenerator: React.FC = () => {
   const renderScheduleByDay = () => {
     const entriesByDay = routineService.groupEntriesByDay(scheduleEntries);
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const timeSlots = Array.from({ length: 8 }, (_, i) => i + 1);
+    const timeSlots = [1, 2, 3, 4, 'break', 5, 6, 7]; // Include break explicitly
 
     return (
       <TableContainer component={Paper}>
@@ -301,11 +301,8 @@ const RoutineGenerator: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {timeSlots.map((slotNum) => {
-              const timeRange = routineService.formatTimeSlot(1, slotNum).split(' ')[1];
-              const isBreak = slotNum === 4;
-              
-              if (isBreak) {
+            {timeSlots.map((slot) => {
+              if (slot === 'break') {
                 return (
                   <TableRow key="break">
                     <TableCell sx={{ bgcolor: 'grey.100', fontWeight: 'bold' }}>
@@ -314,13 +311,16 @@ const RoutineGenerator: React.FC = () => {
                     {days.map((_, index) => (
                       <TableCell key={index} align="center" sx={{ bgcolor: 'grey.100' }}>
                         <Typography variant="caption" color="text.secondary">
-                          BREAK
+                          LUNCH BREAK
                         </Typography>
                       </TableCell>
                     ))}
                   </TableRow>
                 );
               }
+              
+              const slotNum = slot as number;
+              const timeRange = routineService.formatTimeSlot(1, slotNum).split(' ')[1];
 
               return (
                 <TableRow key={slotNum}>

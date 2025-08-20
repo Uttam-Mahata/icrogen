@@ -83,6 +83,7 @@ func (s *routineGenerationService) GenerateRoutine(semesterOfferingID uint) (*mo
 		Status:             "DRAFT",
 		AlgorithmVersion:   "v1.0",
 		GeneratedAt:        time.Now(),
+		Meta:               "{}", // Initialize with empty JSON object
 	}
 	
 	if err := s.scheduleRepo.CreateScheduleRun(scheduleRun); err != nil {
@@ -149,11 +150,15 @@ func (s *routineGenerationService) generateClassBlocks(courseOfferings []models.
 		
 		// Get assigned teachers and rooms
 		if len(offering.TeacherAssignments) == 0 {
-			return nil, fmt.Errorf("no teachers assigned to course offering %d", offering.ID)
+			logrus.Warnf("No teachers assigned to course offering %d (subject: %s), skipping", 
+				offering.ID, offering.Subject.Name)
+			continue // Skip this offering instead of failing
 		}
 		
 		if len(offering.RoomAssignments) == 0 {
-			return nil, fmt.Errorf("no rooms assigned to course offering %d", offering.ID)
+			logrus.Warnf("No rooms assigned to course offering %d (subject: %s), skipping", 
+				offering.ID, offering.Subject.Name)
+			continue // Skip this offering instead of failing
 		}
 		
 		// Use first assigned teacher and room (can be enhanced for multiple assignments)
@@ -161,7 +166,7 @@ func (s *routineGenerationService) generateClassBlocks(courseOfferings []models.
 		roomID := offering.RoomAssignments[0].RoomID
 		
 		if isLab {
-			// Labs are typically 3-hour blocks
+			// Labs are typically 3-hour blocks, once per week
 			block := models.ClassBlock{
 				SubjectID:          offering.SubjectID,
 				TeacherID:          teacherID,
@@ -173,14 +178,11 @@ func (s *routineGenerationService) generateClassBlocks(courseOfferings []models.
 			}
 			blocks = append(blocks, block)
 		} else {
-			// Theory subjects - create blocks based on pattern
-			// For now, create 2-slot blocks for efficiency
-			for weeklySlots > 0 {
-				slotLength := 2
-				if weeklySlots == 1 {
-					slotLength = 1
-				}
-				
+			// Theory subjects - create blocks based on credit and weekly load
+			// Apply patterns from DESIGN document
+			patterns := s.getTheoryPatterns(weeklySlots, offering.Subject.Credit)
+			
+			for _, slotLength := range patterns {
 				block := models.ClassBlock{
 					SubjectID:          offering.SubjectID,
 					TeacherID:          teacherID,
@@ -191,7 +193,6 @@ func (s *routineGenerationService) generateClassBlocks(courseOfferings []models.
 					CourseOfferingID:   offering.ID,
 				}
 				blocks = append(blocks, block)
-				weeklySlots -= slotLength
 			}
 		}
 	}
@@ -199,13 +200,66 @@ func (s *routineGenerationService) generateClassBlocks(courseOfferings []models.
 	return blocks, nil
 }
 
+// getTheoryPatterns returns the pattern of slot lengths for theory subjects
+// Based on DESIGN_v1.md credit-to-sessions mapping
+func (s *routineGenerationService) getTheoryPatterns(weeklySlots int, credit int) []int {
+	var patterns []int
+	
+	switch credit {
+	case 4:
+		// Credit 4: prefer 2+2, fallback 2+1+1
+		if weeklySlots >= 4 {
+			patterns = []int{2, 2}
+		} else if weeklySlots == 3 {
+			patterns = []int{2, 1}
+		} else {
+			for i := 0; i < weeklySlots; i++ {
+				patterns = append(patterns, 1)
+			}
+		}
+	case 3:
+		// Credit 3: prefer 2+1, fallback 1+1+1
+		if weeklySlots >= 3 {
+			patterns = []int{2, 1}
+		} else {
+			for i := 0; i < weeklySlots; i++ {
+				patterns = append(patterns, 1)
+			}
+		}
+	case 2:
+		// Credit 2: prefer consecutive 2, fallback 1+1
+		if weeklySlots >= 2 {
+			patterns = []int{2}
+		} else {
+			patterns = []int{1}
+		}
+	default:
+		// Default pattern: split into 2-slot blocks where possible
+		remaining := weeklySlots
+		for remaining > 0 {
+			if remaining >= 2 {
+				patterns = append(patterns, 2)
+				remaining -= 2
+			} else {
+				patterns = append(patterns, 1)
+				remaining--
+			}
+		}
+	}
+	
+	return patterns
+}
+
 func (s *routineGenerationService) initializeTimetable() models.Timetable {
 	timetable := make(models.Timetable)
 	
-	// Initialize for Monday to Friday (1-5), 8 slots per day
+	// Initialize for Monday to Friday (1-5), 7 slots per day
+	// Slots 1-4: Morning (9:00-12:40)
+	// Lunch break: 12:40-13:50 (not a slot)
+	// Slots 5-7: Afternoon (13:50-16:35)
 	for day := 1; day <= 5; day++ {
 		timetable[day] = make(map[int]models.TimeSlotInfo)
-		for slot := 1; slot <= 8; slot++ {
+		for slot := 1; slot <= 7; slot++ {
 			timetable[day][slot] = models.TimeSlotInfo{
 				IsBooked: false,
 				Block:    nil,
@@ -288,35 +342,118 @@ func (s *routineGenerationService) backtrack(blocks []models.ClassBlock, index i
 	
 	currentBlock := blocks[index]
 	
-	// Try all possible placements
+	// Get valid slot candidates for this block type
+	slotCandidates := s.getSlotCandidates(currentBlock)
+	
+	// Try all possible placements with scoring
+	type placement struct {
+		day   int
+		slot  int
+		score int
+	}
+	
+	var validPlacements []placement
+	
 	for day := 1; day <= 5; day++ {
-		for slot := 1; slot <= 8; slot++ {
+		for _, slot := range slotCandidates {
 			if s.canPlaceBlock(currentBlock, day, slot, timetable, sessionID) {
-				// Place the block
-				s.placeBlock(currentBlock, day, slot, timetable)
-				
-				// Recurse
-				result := s.backtrack(blocks, index+1, timetable, sessionID)
-				if result > index {
-					return result // Found a solution
-				}
-				
-				// Backtrack
-				s.removeBlock(currentBlock, day, slot, timetable)
+				score := s.scorePlacement(currentBlock, day, slot, timetable)
+				validPlacements = append(validPlacements, placement{day, slot, score})
 			}
 		}
+	}
+	
+	// Sort by score (higher score = better placement)
+	sort.Slice(validPlacements, func(i, j int) bool {
+		return validPlacements[i].score > validPlacements[j].score
+	})
+	
+	// Try placements in order of preference
+	for _, p := range validPlacements {
+		// Place the block
+		s.placeBlock(currentBlock, p.day, p.slot, timetable)
+		
+		// Recurse
+		result := s.backtrack(blocks, index+1, timetable, sessionID)
+		if result > index {
+			return result // Found a solution
+		}
+		
+		// Backtrack
+		s.removeBlock(currentBlock, p.day, p.slot, timetable)
 	}
 	
 	// No placement found for this block
 	return index
 }
 
+// getSlotCandidates returns valid starting slots for a block
+func (s *routineGenerationService) getSlotCandidates(block models.ClassBlock) []int {
+	if block.IsLab && block.DurationSlots == 3 {
+		// Labs: slots 2-4 (morning 09:55-12:40) or 5-7 (afternoon 13:50-16:35)
+		return []int{2, 5} // Morning or afternoon lab slots
+	} else if block.DurationSlots == 2 {
+		// 2-slot blocks: avoid spanning lunch
+		return []int{1, 2, 3, 5, 6} // Can start at 1-3 (morning) or 5-6 (afternoon)
+	} else {
+		// Single slots: all available
+		return []int{1, 2, 3, 4, 5, 6, 7}
+	}
+}
+
+// scorePlacement scores a potential placement (higher = better)
+func (s *routineGenerationService) scorePlacement(block models.ClassBlock, day int, slot int, timetable models.Timetable) int {
+	score := 100
+	
+	// Prefer spreading classes across the week
+	slotsOnDay := 0
+	for s := 1; s <= 7; s++ {
+		if daySlots, exists := timetable[day]; exists {
+			if slotInfo, slotExists := daySlots[s]; slotExists && slotInfo.IsBooked {
+				slotsOnDay++
+			}
+		}
+	}
+	score -= slotsOnDay * 5
+	
+	// Labs: prefer afternoon
+	if block.IsLab && slot >= 5 {
+		score += 20
+	}
+	
+	// Theory: prefer morning and early afternoon
+	if !block.IsLab {
+		if slot <= 3 {
+			score += 15
+		} else if slot == 5 || slot == 6 {
+			score += 10
+		}
+	}
+	
+	// Avoid late slots
+	if slot >= 7 {
+		score -= 10
+	}
+	
+	// Prefer Monday-Thursday over Friday
+	if day == 5 {
+		score -= 5
+	}
+	
+	return score
+}
+
 func (s *routineGenerationService) canPlaceBlock(block models.ClassBlock, day int, startSlot int, timetable models.Timetable, sessionID uint) bool {
 	// Check if enough consecutive slots are available
 	for i := 0; i < block.DurationSlots; i++ {
 		slot := startSlot + i
-		if slot > 8 { // Exceeds day boundary
+		if slot > 7 { // Maximum 7 slots per day
 			return false
+		}
+		
+		// Check if block spans across lunch break
+		if startSlot <= 4 && slot > 4 {
+			return false // Cannot span from morning to afternoon
 		}
 		
 		// Check slot availability
@@ -329,25 +466,40 @@ func (s *routineGenerationService) canPlaceBlock(block models.ClassBlock, day in
 	
 	// Additional constraints for labs
 	if block.IsLab {
-		// Labs should not span the lunch break (slot 4-5 boundary)
-		if startSlot <= 4 && startSlot+block.DurationSlots-1 >= 5 {
-			return false
-		}
-		
-		// Prefer afternoon slots for labs (slots 5-7)
-		if startSlot < 5 {
-			// Only allow morning labs if no afternoon slots available
-			hasAfternoonSpace := s.hasConsecutiveSlots(day, 5, block.DurationSlots, timetable)
-			if hasAfternoonSpace {
+		// Labs must be 3 consecutive slots
+		if block.DurationSlots == 3 {
+			// Valid lab slots: 2-4 (morning 09:55-12:40) or 5-7 (afternoon 13:50-16:35)
+			if startSlot != 2 && startSlot != 5 {
 				return false
 			}
 		}
 	}
 	
+	// Theory constraint: max 2 slots per day for same course
+	// For 4-credit courses with 2+2 pattern, only one 2-hour block per day
+	if !block.IsLab {
+		// Count existing slots for this course on this day
+		slotsOnDay := 0
+		for slot := 1; slot <= 7; slot++ {
+			if daySlots, exists := timetable[day]; exists {
+				if slotInfo, slotExists := daySlots[slot]; slotExists && slotInfo.IsBooked && slotInfo.Block != nil {
+					if slotInfo.Block.CourseOfferingID == block.CourseOfferingID {
+						slotsOnDay++
+					}
+				}
+			}
+		}
+		// Check if adding this block would exceed the limit
+		if slotsOnDay + block.DurationSlots > 2 {
+			return false
+		}
+	}
+	
 	// Check global constraints (teacher and room availability)
-	slotNumbers := make([]int, block.DurationSlots)
+	slotNumbers := make([]int, 0, block.DurationSlots)
 	for i := 0; i < block.DurationSlots; i++ {
-		slotNumbers[i] = startSlot + i
+		slot := startSlot + i
+		slotNumbers = append(slotNumbers, slot)
 	}
 	
 	// Check teacher availability
@@ -374,7 +526,12 @@ func (s *routineGenerationService) canPlaceBlock(block models.ClassBlock, day in
 func (s *routineGenerationService) hasConsecutiveSlots(day int, startSlot int, requiredSlots int, timetable models.Timetable) bool {
 	for i := 0; i < requiredSlots; i++ {
 		slot := startSlot + i
-		if slot > 8 {
+		if slot > 7 {
+			return false
+		}
+		
+		// Check if spans lunch break
+		if startSlot <= 4 && slot > 4 {
 			return false
 		}
 		
@@ -412,7 +569,7 @@ func (s *routineGenerationService) generatePlacementSuggestions(block models.Cla
 	
 	// Find all possible slots where this block could be placed
 	for day := 1; day <= 5; day++ {
-		for slot := 1; slot <= 8; slot++ {
+		for slot := 1; slot <= 7; slot++ {
 			if s.hasConsecutiveSlots(day, slot, block.DurationSlots, timetable) {
 				suggestions = append(suggestions, TimeSlot{
 					DayOfWeek:  day,
@@ -428,10 +585,50 @@ func (s *routineGenerationService) generatePlacementSuggestions(block models.Cla
 
 func (s *routineGenerationService) convertTimetableToEntries(timetable models.Timetable, scheduleRunID uint, semesterOffering *models.SemesterOffering) []models.ScheduleEntry {
 	var entries []models.ScheduleEntry
+	blockToID := make(map[*models.ClassBlock]uint)
+	blockIDCounter := uint(1)
+	
+	// First pass: create schedule blocks
+	processedBlocks := make(map[string]bool)
 	
 	for day := 1; day <= 5; day++ {
-		for slot := 1; slot <= 8; slot++ {
+		for slot := 1; slot <= 7; slot++ {
 			if slotInfo, exists := timetable[day][slot]; exists && slotInfo.IsBooked && slotInfo.Block != nil {
+				// Create a unique key for this block placement
+				blockKey := fmt.Sprintf("%d-%d-%d-%d", slotInfo.Block.CourseOfferingID, day, slot, slotInfo.Block.DurationSlots)
+				
+				// Only create schedule block once for multi-slot blocks
+				if !processedBlocks[blockKey] {
+					scheduleBlock := models.ScheduleBlock{
+						ScheduleRunID:    scheduleRunID,
+						CourseOfferingID: slotInfo.Block.CourseOfferingID,
+						TeacherID:        slotInfo.Block.TeacherID,
+						RoomID:           slotInfo.Block.RoomID,
+						DayOfWeek:        day,
+						SlotStart:        slot,
+						SlotLength:       slotInfo.Block.DurationSlots,
+						IsLab:            slotInfo.Block.IsLab,
+					}
+					
+					if err := s.scheduleRepo.CreateScheduleBlock(&scheduleBlock); err == nil {
+						blockToID[slotInfo.Block] = scheduleBlock.ID
+						processedBlocks[blockKey] = true
+					}
+				}
+			}
+		}
+	}
+	
+	// Second pass: create schedule entries
+	for day := 1; day <= 5; day++ {
+		for slot := 1; slot <= 7; slot++ {
+			if slotInfo, exists := timetable[day][slot]; exists && slotInfo.IsBooked && slotInfo.Block != nil {
+				blockID := blockToID[slotInfo.Block]
+				if blockID == 0 {
+					blockID = blockIDCounter
+					blockIDCounter++
+				}
+				
 				entry := models.ScheduleEntry{
 					ScheduleRunID:        scheduleRunID,
 					SemesterOfferingID:   slotInfo.Block.SemesterOfferingID,
@@ -441,6 +638,7 @@ func (s *routineGenerationService) convertTimetableToEntries(timetable models.Ti
 					RoomID:               slotInfo.Block.RoomID,
 					DayOfWeek:            day,
 					SlotNumber:           slot,
+					BlockID:              &blockID,
 				}
 				entries = append(entries, entry)
 			}

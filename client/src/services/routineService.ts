@@ -47,16 +47,16 @@ class RoutineService {
   // Helper method to format time slot
   formatTimeSlot(dayOfWeek: number, slotNumber: number): string {
     const days = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    // Slots 1-4: Morning classes, Lunch break 12:40-13:50, Slots 5-7: Afternoon classes
     const times = [
       '',
-      '09:00-09:55',
-      '09:55-10:50',
-      '10:50-11:45',
-      '11:45-12:40',
-      '13:50-14:45',
-      '14:45-15:40',
-      '15:40-16:35',
-      '16:35-17:30'
+      '09:00-09:55',  // Slot 1
+      '09:55-10:50',  // Slot 2
+      '10:50-11:45',  // Slot 3
+      '11:45-12:40',  // Slot 4
+      '13:50-14:45',  // Slot 5
+      '14:45-15:40',  // Slot 6
+      '15:40-16:35',  // Slot 7
     ];
     
     return `${days[dayOfWeek] || ''} ${times[slotNumber] || ''}`;

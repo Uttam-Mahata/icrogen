@@ -52,6 +52,11 @@ func (s *teacherService) CreateTeacher(teacher *models.Teacher) error {
 		return errors.New("invalid email format")
 	}
 	
+	// Handle empty initials - set to nil if empty
+	if teacher.Initials != nil && *teacher.Initials == "" {
+		teacher.Initials = nil
+	}
+	
 	// Validate that department exists
 	_, err := s.departmentRepo.GetByID(teacher.DepartmentID)
 	if err != nil {
@@ -103,6 +108,11 @@ func (s *teacherService) UpdateTeacher(teacher *models.Teacher) error {
 	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 	if !emailRegex.MatchString(teacher.Email) {
 		return errors.New("invalid email format")
+	}
+	
+	// Handle empty initials - set to nil if empty
+	if teacher.Initials != nil && *teacher.Initials == "" {
+		teacher.Initials = nil
 	}
 	
 	return s.teacherRepo.Update(teacher)
