@@ -4,7 +4,6 @@ import (
 	"errors"
 	"icrogen/internal/models"
 	"icrogen/internal/repository"
-	"time"
 )
 
 // SessionService interface for session business logic
@@ -15,6 +14,8 @@ type SessionService interface {
 	GetSessionsByYear(academicYear string) ([]models.Session, error)
 	UpdateSession(session *models.Session) error
 	DeleteSession(id uint) error
+	HardDeleteSession(id uint) error
+	RestoreSession(id uint) error
 }
 
 type sessionService struct {
@@ -40,6 +41,16 @@ func (s *sessionService) CreateSession(session *models.Session) error {
 	validNames := map[string]bool{"SPRING": true, "FALL": true}
 	if !validNames[session.Name] {
 		return errors.New("invalid session name (must be SPRING or FALL)")
+	}
+	
+	// Check if session with same name and year already exists (including soft-deleted)
+	existingSession, _ := s.sessionRepo.GetByNameAndYear(session.Name, session.AcademicYear)
+	if existingSession != nil {
+		if existingSession.DeletedAt.Valid {
+			// If it's soft-deleted, we need to either restore it or return an error
+			return errors.New("a deleted session with the same name and academic year already exists. Please restore or permanently delete it first")
+		}
+		return errors.New("session with the same name and academic year already exists")
 	}
 	
 	// Set parity based on session name
@@ -107,9 +118,29 @@ func (s *sessionService) DeleteSession(id uint) error {
 	return s.sessionRepo.Delete(id)
 }
 
+func (s *sessionService) HardDeleteSession(id uint) error {
+	if id == 0 {
+		return errors.New("invalid session ID")
+	}
+	
+	// Permanently delete the session
+	// WARNING: This will fail if there are foreign key constraints
+	return s.sessionRepo.HardDelete(id)
+}
+
+func (s *sessionService) RestoreSession(id uint) error {
+	if id == 0 {
+		return errors.New("invalid session ID")
+	}
+	
+	// Restore a soft-deleted session
+	return s.sessionRepo.Restore(id)
+}
+
 // SemesterOfferingService interface for semester offering business logic
 type SemesterOfferingService interface {
 	CreateSemesterOffering(offering *models.SemesterOffering) error
+	GetAllSemesterOfferings() ([]models.SemesterOffering, error)
 	GetSemesterOfferingByID(id uint) (*models.SemesterOffering, error)
 	GetSemesterOfferingsBySession(sessionID uint) ([]models.SemesterOffering, error)
 	GetSemesterOfferingsByProgrammeDepartmentSession(programmeID, departmentID, sessionID uint) ([]models.SemesterOffering, error)
@@ -187,6 +218,10 @@ func (s *semesterOfferingService) CreateSemesterOffering(offering *models.Semest
 	}
 	
 	return s.semesterOfferingRepo.Create(offering)
+}
+
+func (s *semesterOfferingService) GetAllSemesterOfferings() ([]models.SemesterOffering, error) {
+	return s.semesterOfferingRepo.GetAll()
 }
 
 func (s *semesterOfferingService) GetSemesterOfferingByID(id uint) (*models.SemesterOffering, error) {

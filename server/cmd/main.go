@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 
@@ -10,9 +11,14 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 func main() {
+	// Parse command line flags
+	migrate := flag.Bool("migrate", false, "Run database migrations")
+	flag.Parse()
+
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		logrus.Warn("No .env file found")
@@ -27,15 +33,22 @@ func main() {
 	// Setup logger
 	setupLogger(cfg.LogLevel)
 
-	// Initialize database
-	db, err := database.Connect(cfg.DatabaseURL)
-	if err != nil {
-		logrus.Fatal("Failed to connect to database:", err)
-	}
-
-	// Run migrations
-	if err := database.Migrate(cfg.DatabaseURL); err != nil {
-		logrus.Fatal("Failed to run migrations:", err)
+	// Initialize database with or without migrations
+	var db *gorm.DB
+	if *migrate || os.Getenv("RUN_MIGRATIONS") == "true" {
+		logrus.Info("Running database migrations...")
+		db, err = database.Connect(cfg.DatabaseURL)
+		if err != nil {
+			logrus.Fatal("Failed to connect to database:", err)
+		}
+		logrus.Info("Database connected and migrations completed successfully")
+	} else {
+		logrus.Info("Connecting to database without migrations...")
+		db, err = database.ConnectWithoutMigration(cfg.DatabaseURL)
+		if err != nil {
+			logrus.Fatal("Failed to connect to database:", err)
+		}
+		logrus.Info("Database connected successfully")
 	}
 
 	// Initialize and start HTTP server

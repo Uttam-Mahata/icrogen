@@ -12,8 +12,11 @@ type SessionRepository interface {
 	GetByID(id uint) (*models.Session, error)
 	GetAll() ([]models.Session, error)
 	GetByYear(academicYear string) ([]models.Session, error)
+	GetByNameAndYear(name, academicYear string) (*models.Session, error)
 	Update(session *models.Session) error
 	Delete(id uint) error
+	HardDelete(id uint) error
+	Restore(id uint) error
 }
 
 type sessionRepository struct {
@@ -49,17 +52,39 @@ func (r *sessionRepository) GetByYear(academicYear string) ([]models.Session, er
 	return sessions, err
 }
 
+func (r *sessionRepository) GetByNameAndYear(name, academicYear string) (*models.Session, error) {
+	var session models.Session
+	// Use Unscoped to check even soft-deleted records since unique constraint applies to all records
+	err := r.db.Unscoped().Where("name = ? AND academic_year = ?", name, academicYear).First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
 func (r *sessionRepository) Update(session *models.Session) error {
 	return r.db.Save(session).Error
 }
 
 func (r *sessionRepository) Delete(id uint) error {
+	// Soft delete (sets deleted_at)
 	return r.db.Delete(&models.Session{}, id).Error
+}
+
+func (r *sessionRepository) HardDelete(id uint) error {
+	// Permanently delete the record
+	return r.db.Unscoped().Delete(&models.Session{}, id).Error
+}
+
+func (r *sessionRepository) Restore(id uint) error {
+	// Restore a soft-deleted session
+	return r.db.Unscoped().Model(&models.Session{}).Where("id = ?", id).Update("deleted_at", nil).Error
 }
 
 // SemesterOfferingRepository interface for semester offering operations
 type SemesterOfferingRepository interface {
 	Create(offering *models.SemesterOffering) error
+	GetAll() ([]models.SemesterOffering, error)
 	GetByID(id uint) (*models.SemesterOffering, error)
 	GetBySession(sessionID uint) ([]models.SemesterOffering, error)
 	GetByProgrammeDepartmentSession(programmeID, departmentID, sessionID uint) ([]models.SemesterOffering, error)
@@ -80,11 +105,34 @@ func (r *semesterOfferingRepository) Create(offering *models.SemesterOffering) e
 	return r.db.Create(offering).Error
 }
 
+func (r *semesterOfferingRepository) GetAll() ([]models.SemesterOffering, error) {
+	var offerings []models.SemesterOffering
+	err := r.db.Preload("Programme").
+		Preload("Department").
+		Preload("Session").
+		Preload("CourseOfferings").
+		Preload("CourseOfferings.Subject").
+		Preload("CourseOfferings.Subject.SubjectType").
+		Preload("CourseOfferings.TeacherAssignments").
+		Preload("CourseOfferings.TeacherAssignments.Teacher").
+		Preload("CourseOfferings.RoomAssignments").
+		Preload("CourseOfferings.RoomAssignments.Room").
+		Find(&offerings).Error
+	return offerings, err
+}
+
 func (r *semesterOfferingRepository) GetByID(id uint) (*models.SemesterOffering, error) {
 	var offering models.SemesterOffering
 	err := r.db.Preload("Programme").
 		Preload("Department").
 		Preload("Session").
+		Preload("CourseOfferings").
+		Preload("CourseOfferings.Subject").
+		Preload("CourseOfferings.Subject.SubjectType").
+		Preload("CourseOfferings.TeacherAssignments").
+		Preload("CourseOfferings.TeacherAssignments.Teacher").
+		Preload("CourseOfferings.RoomAssignments").
+		Preload("CourseOfferings.RoomAssignments.Room").
 		First(&offering, id).Error
 	if err != nil {
 		return nil, err
@@ -96,6 +144,14 @@ func (r *semesterOfferingRepository) GetBySession(sessionID uint) ([]models.Seme
 	var offerings []models.SemesterOffering
 	err := r.db.Preload("Programme").
 		Preload("Department").
+		Preload("Session").
+		Preload("CourseOfferings").
+		Preload("CourseOfferings.Subject").
+		Preload("CourseOfferings.Subject.SubjectType").
+		Preload("CourseOfferings.TeacherAssignments").
+		Preload("CourseOfferings.TeacherAssignments.Teacher").
+		Preload("CourseOfferings.RoomAssignments").
+		Preload("CourseOfferings.RoomAssignments.Room").
 		Where("session_id = ?", sessionID).
 		Find(&offerings).Error
 	return offerings, err

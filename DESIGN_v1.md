@@ -1,4 +1,4 @@
-Title: ICRoGen – System Design (Go backend + MySQL)
+Title: ICRoGen – System Design (Go backend + TiDBSQL)
 
 Overview
 ICRoGen (IIEST Central Routine Generator) is a comprehensive backend system to manage and generate academic schedules across multiple programmes, departments, and semesters, preventing conflicts across teachers, rooms, and time slots. It provides CRUD for core academic entities, tools to select subjects per semester, assign teachers/rooms across departments/programmes, and a routine generator that respects time rules and resolves conflicts by suggesting free slot combinations.
