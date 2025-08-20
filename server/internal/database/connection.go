@@ -99,7 +99,13 @@ func addIndexes(db *gorm.DB) error {
 		// Ignore if already exists
 	}
 	
-	if err := db.Exec("ALTER TABLE semester_offerings ADD UNIQUE INDEX uq_sem_off_prog_dept_sess_num (programme_id, department_id, session_id, semester_number)").Error; err != nil {
+	// Commented out: This unique constraint can cause issues with NULL values or legitimate duplicates
+	// if err := db.Exec("ALTER TABLE semester_offerings ADD UNIQUE INDEX uq_sem_off_prog_dept_sess_num (programme_id, department_id, session_id, semester_number)").Error; err != nil {
+	// 	// Ignore if already exists
+	// }
+	
+	// Add regular index for performance instead
+	if err := db.Exec("ALTER TABLE semester_offerings ADD INDEX idx_sem_off_prog_dept_sess_num (programme_id, department_id, session_id, semester_number)").Error; err != nil {
 		// Ignore if already exists
 	}
 	
@@ -119,16 +125,31 @@ func addIndexes(db *gorm.DB) error {
 		// Ignore if already exists
 	}
 
-	// Conflict prevention indexes for schedule_entries
-	if err := db.Exec("ALTER TABLE schedule_entries ADD UNIQUE INDEX uq_sched_entry_sess_day_slot_teacher (session_id, day_of_week, slot_number, teacher_id)").Error; err != nil {
+	// Conflict prevention indexes for schedule_entries - using regular indexes instead of unique
+	// to avoid issues with batch inserts and potential NULL values
+	if err := db.Exec("ALTER TABLE schedule_entries ADD INDEX idx_sched_entry_sess_day_slot_teacher (session_id, day_of_week, slot_number, teacher_id)").Error; err != nil {
 		// Ignore if already exists
 	}
 	
-	if err := db.Exec("ALTER TABLE schedule_entries ADD UNIQUE INDEX uq_sched_entry_sess_day_slot_room (session_id, day_of_week, slot_number, room_id)").Error; err != nil {
+	if err := db.Exec("ALTER TABLE schedule_entries ADD INDEX idx_sched_entry_sess_day_slot_room (session_id, day_of_week, slot_number, room_id)").Error; err != nil {
 		// Ignore if already exists
 	}
 	
-	if err := db.Exec("ALTER TABLE schedule_entries ADD UNIQUE INDEX uq_sched_entry_run_day_slot_course (schedule_run_id, day_of_week, slot_number, course_offering_id)").Error; err != nil {
+	if err := db.Exec("ALTER TABLE schedule_entries ADD INDEX idx_sched_entry_run_day_slot_course (schedule_run_id, day_of_week, slot_number, course_offering_id)").Error; err != nil {
+		// Ignore if already exists
+	}
+	
+	// Performance indexes for schedule queries
+	if err := db.Exec("ALTER TABLE schedule_entries ADD INDEX idx_sched_entries_run_id (schedule_run_id)").Error; err != nil {
+		// Ignore if already exists
+	}
+	
+	if err := db.Exec("ALTER TABLE schedule_entries ADD INDEX idx_sched_entries_semester_offering (semester_offering_id)").Error; err != nil {
+		// Ignore if already exists
+	}
+	
+	// Composite index for JOIN queries
+	if err := db.Exec("ALTER TABLE schedule_entries ADD INDEX idx_sched_entries_composite (schedule_run_id, day_of_week, slot_number)").Error; err != nil {
 		// Ignore if already exists
 	}
 

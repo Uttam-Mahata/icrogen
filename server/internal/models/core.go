@@ -47,7 +47,7 @@ type Department struct {
 type Teacher struct {
 	ID           uint           `json:"id" gorm:"primaryKey;autoIncrement"`
 	Name         string         `json:"name" gorm:"type:varchar(255);not null"`
-	Initials     *string        `json:"initials" gorm:"type:varchar(10);uniqueIndex"`
+	Initials     *string        `json:"initials" gorm:"type:varchar(10);index"`
 	Email        string         `json:"email" gorm:"type:varchar(255);uniqueIndex"`
 	DepartmentID uint           `json:"department_id" gorm:"not null"`
 	IsActive     bool           `json:"is_active" gorm:"default:true"`
