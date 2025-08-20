@@ -98,6 +98,7 @@ export const API_ENDPOINTS = {
     bySemesterOffering: (id: number) => `/routines/semester-offering/${id}`,
     commit: (id: number) => `/routines/${id}/commit`,
     cancel: (id: number) => `/routines/${id}/cancel`,
+    delete: (id: number) => `/routines/${id}`,
   },
   
   // Health

@@ -38,18 +38,32 @@ func main() {
 		{
 			Name:  "Core Theory",
 			IsLab: false,
+			RequiresRoom: true,
+			DefaultConsecutivePreferred: true,
 		},
 		{
 			Name:  "Laboratory",
 			IsLab: true,
+			RequiresRoom: true,
+			DefaultConsecutivePreferred: true,
 		},
 		{
 			Name:  "Departmental Elective",
 			IsLab: false,
+			RequiresRoom: true,
+			DefaultConsecutivePreferred: true,
 		},
 		{
 			Name:  "Open Elective",
 			IsLab: false,
+			RequiresRoom: true,
+			DefaultConsecutivePreferred: true,
+		},
+		{
+			Name:  "Other",
+			IsLab: false,
+			RequiresRoom: false,
+			DefaultConsecutivePreferred: false,
 		},
 	}
 

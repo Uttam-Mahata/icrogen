@@ -178,6 +178,7 @@ func (s *Server) setupRoutes() {
 			routines.GET("/semester-offering/:semester_offering_id", routineHandler.GetScheduleRunsBySemesterOffering)
 			routines.POST("/:id/commit", routineHandler.CommitScheduleRun)
 			routines.POST("/:id/cancel", routineHandler.CancelScheduleRun)
+			routines.DELETE("/:id", routineHandler.DeleteScheduleRun)
 		}
 
 		// Health check

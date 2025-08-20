@@ -161,3 +161,31 @@ func (h *RoutineHandler) CancelScheduleRun(c *gin.Context) {
 		Message: "Schedule run cancelled successfully",
 	})
 }
+
+// DeleteScheduleRun deletes a schedule run
+func (h *RoutineHandler) DeleteScheduleRun(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Error:   "Invalid schedule run ID",
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+
+	if err := h.routineService.DeleteScheduleRun(uint(id)); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Error:   err.Error(),
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Message: "Schedule run deleted successfully",
+	})
+}
