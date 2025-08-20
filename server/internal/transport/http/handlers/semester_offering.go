@@ -154,12 +154,21 @@ func (h *SemesterOfferingHandler) UpdateSemesterOffering(c *gin.Context) {
 		return
 	}
 
-	offering := &models.SemesterOffering{
-		ID:     uint(id),
-		Status: req.Status,
+	// Fetch existing offering first to get all required fields
+	existing, err := h.semesterOfferingService.GetSemesterOfferingByID(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, dto.ErrorResponse{
+			Success: false,
+			Error:   "Semester offering not found",
+			Code:    http.StatusNotFound,
+		})
+		return
 	}
 
-	if err := h.semesterOfferingService.UpdateSemesterOffering(offering); err != nil {
+	// Update only the status field
+	existing.Status = req.Status
+
+	if err := h.semesterOfferingService.UpdateSemesterOffering(existing); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Success: false,
 			Error:   err.Error(),
@@ -170,7 +179,7 @@ func (h *SemesterOfferingHandler) UpdateSemesterOffering(c *gin.Context) {
 
 	c.JSON(http.StatusOK, dto.SuccessResponse{
 		Success: true,
-		Data:    offering,
+		Data:    existing,
 	})
 }
 
@@ -233,7 +242,8 @@ func (h *SemesterOfferingHandler) AddCourseOffering(c *gin.Context) {
 		Notes:               req.Notes,
 	}
 
-	if err := h.courseOfferingService.CreateCourseOffering(courseOffering); err != nil {
+	// Create course offering with optional teacher assignments
+	if err := h.courseOfferingService.CreateCourseOfferingWithTeachers(courseOffering, req.TeacherIDs); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Success: false,
 			Error:   err.Error(),

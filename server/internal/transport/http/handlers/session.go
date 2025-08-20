@@ -207,3 +207,57 @@ func (h *SessionHandler) DeleteSession(c *gin.Context) {
 		Message: "Session deleted successfully",
 	})
 }
+
+func (h *SessionHandler) HardDeleteSession(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Error:   "Invalid session ID",
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+
+	if err := h.sessionService.HardDeleteSession(uint(id)); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Error:   err.Error(),
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "Session permanently deleted",
+	})
+}
+
+func (h *SessionHandler) RestoreSession(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Error:   "Invalid session ID",
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+
+	if err := h.sessionService.RestoreSession(uint(id)); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Error:   err.Error(),
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.SuccessResponse{
+		Success: true,
+		Message: "Session restored successfully",
+	})
+}

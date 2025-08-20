@@ -24,9 +24,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  FormControlLabel,
-  Switch,
-  Slider,
   Table,
   TableBody,
   TableCell,
@@ -35,6 +32,14 @@ import {
   TableRow,
   Tabs,
   Tab,
+  Stepper,
+  Step,
+  StepLabel,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Badge,
+  Tooltip,
 } from '@mui/material';
 import {
   PlayArrow,
@@ -46,11 +51,21 @@ import {
   Room,
   Person,
   School,
-  Settings,
   Download,
   Print,
+  ExpandMore,
+  Warning,
+  Info,
+  Refresh,
+  Save,
+  History,
 } from '@mui/icons-material';
-import { type SemesterOffering, type ScheduleRun, type ScheduleSlot } from '../../types/models';
+import { 
+  type SemesterOffering, 
+  type ScheduleRun, 
+  type ScheduleEntry,
+  type CourseOffering,
+} from '../../types/models';
 import { semesterOfferingService } from '../../services/semesterOfferingService';
 import { routineService, type GenerateRoutineRequest } from '../../services/routineService';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
@@ -81,24 +96,17 @@ function TabPanel(props: TabPanelProps) {
 const RoutineGenerator: React.FC = () => {
   const [semesterOfferings, setSemesterOfferings] = useState<SemesterOffering[]>([]);
   const [selectedOffering, setSelectedOffering] = useState<number | ''>('');
+  const [selectedOfferingData, setSelectedOfferingData] = useState<SemesterOffering | null>(null);
   const [scheduleRuns, setScheduleRuns] = useState<ScheduleRun[]>([]);
   const [currentSchedule, setCurrentSchedule] = useState<ScheduleRun | null>(null);
-  const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
+  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [openSettings, setOpenSettings] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState(0); // 0: By Day, 1: By Room, 2: By Teacher
   const [commitDialog, setCommitDialog] = useState(false);
-  const [commitMessage, setCommitMessage] = useState('');
-
-  // Generation settings
-  const [generationSettings, setGenerationSettings] = useState({
-    respect_teacher_preferences: true,
-    respect_room_preferences: true,
-    max_iterations: 1000,
-    temperature: 0.8,
-  });
+  const [activeStep, setActiveStep] = useState(0);
 
   useEffect(() => {
     fetchSemesterOfferings();
@@ -107,6 +115,7 @@ const RoutineGenerator: React.FC = () => {
   useEffect(() => {
     if (selectedOffering) {
       fetchScheduleRuns(selectedOffering as number);
+      fetchSelectedOfferingData(selectedOffering as number);
     }
   }, [selectedOffering]);
 
@@ -114,8 +123,12 @@ const RoutineGenerator: React.FC = () => {
     try {
       setLoading(true);
       const data = await semesterOfferingService.getAll();
-      // Filter only active semester offerings
-      const activeOfferings = data.filter(o => o.status === 'ACTIVE');
+      // Filter only active semester offerings with course offerings
+      const activeOfferings = data.filter(o => 
+        o.status === 'ACTIVE' && 
+        o.course_offerings && 
+        o.course_offerings.length > 0
+      );
       setSemesterOfferings(activeOfferings);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch semester offerings');
@@ -124,11 +137,20 @@ const RoutineGenerator: React.FC = () => {
     }
   };
 
+  const fetchSelectedOfferingData = async (id: number) => {
+    try {
+      const data = await semesterOfferingService.getById(id);
+      setSelectedOfferingData(data);
+    } catch (err) {
+      console.error('Failed to fetch offering details:', err);
+    }
+  };
+
   const fetchScheduleRuns = async (offeringId: number) => {
     try {
       const runs = await routineService.getScheduleRunsBySemesterOffering(offeringId);
       setScheduleRuns(runs.sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        new Date(b.generated_at).getTime() - new Date(a.generated_at).getTime()
       ));
     } catch (err) {
       // It's ok if no runs exist yet
@@ -136,12 +158,12 @@ const RoutineGenerator: React.FC = () => {
     }
   };
 
-  const fetchScheduleSlots = async (scheduleRunId: number) => {
+  const fetchScheduleEntries = async (scheduleRunId: number) => {
     try {
-      const slots = await routineService.getScheduleSlots(scheduleRunId);
-      setScheduleSlots(slots);
+      const entries = await routineService.getScheduleEntries(scheduleRunId);
+      setScheduleEntries(entries);
     } catch (err) {
-      setError('Failed to fetch schedule slots');
+      setError('Failed to fetch schedule entries');
     }
   };
 
@@ -153,18 +175,23 @@ const RoutineGenerator: React.FC = () => {
 
     setGenerating(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const request: GenerateRoutineRequest = {
         semester_offering_id: selectedOffering as number,
-        config: generationSettings,
       };
 
       const result = await routineService.generateRoutine(request);
       setCurrentSchedule(result);
-      await fetchScheduleSlots(result.id);
+      if (result.schedule_entries) {
+        setScheduleEntries(result.schedule_entries);
+      } else {
+        await fetchScheduleEntries(result.id);
+      }
       await fetchScheduleRuns(selectedOffering as number);
-      setOpenSettings(false);
+      setSuccess('Routine generated successfully!');
+      setActiveStep(1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate routine');
     } finally {
@@ -174,22 +201,23 @@ const RoutineGenerator: React.FC = () => {
 
   const handleViewSchedule = async (run: ScheduleRun) => {
     setCurrentSchedule(run);
-    await fetchScheduleSlots(run.id);
+    if (run.schedule_entries) {
+      setScheduleEntries(run.schedule_entries);
+    } else {
+      await fetchScheduleEntries(run.id);
+    }
+    setActiveStep(1);
   };
 
   const handleCommitSchedule = async () => {
     if (!currentSchedule) return;
 
     try {
-      await routineService.commitSchedule(currentSchedule.id, {
-        message: commitMessage || 'Committed schedule',
-      });
+      await routineService.commitSchedule(currentSchedule.id);
       setCommitDialog(false);
-      setCommitMessage('');
       await fetchScheduleRuns(selectedOffering as number);
-      setError(null);
-      // Show success message
-      alert('Schedule committed successfully!');
+      setSuccess('Schedule committed successfully!');
+      setActiveStep(2);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to commit schedule');
     }
@@ -202,16 +230,60 @@ const RoutineGenerator: React.FC = () => {
         await fetchScheduleRuns(selectedOffering as number);
         if (currentSchedule?.id === runId) {
           setCurrentSchedule(null);
-          setScheduleSlots([]);
+          setScheduleEntries([]);
         }
+        setSuccess('Schedule cancelled successfully');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to cancel schedule');
       }
     }
   };
 
+  const handleExportCSV = () => {
+    if (scheduleEntries.length === 0) return;
+    
+    const filename = `schedule_${selectedOfferingData?.programme?.name}_${selectedOfferingData?.department?.name}_Sem${selectedOfferingData?.semester_number}_${new Date().toISOString().split('T')[0]}.csv`;
+    
+    let csv = 'Day,Time Slot,Subject Code,Subject Name,Teacher,Room,Type\n';
+    
+    const sortedEntries = [...scheduleEntries].sort((a, b) => {
+      if (a.day_of_week !== b.day_of_week) {
+        return a.day_of_week - b.day_of_week;
+      }
+      return a.slot_number - b.slot_number;
+    });
+    
+    sortedEntries.forEach(entry => {
+      const timeSlot = routineService.formatTimeSlot(entry.day_of_week, entry.slot_number);
+      const [day, time] = timeSlot.split(' ');
+      const subjectCode = entry.course_offering?.subject?.code || 'N/A';
+      const subjectName = entry.course_offering?.subject?.name || 'N/A';
+      const teacher = entry.teacher?.name || 'N/A';
+      const room = entry.room?.name || 'N/A';
+      const type = entry.course_offering?.is_lab ? 'Lab' : 'Theory';
+      
+      csv += `"${day}","${time}","${subjectCode}","${subjectName}","${teacher}","${room}","${type}"\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   const renderScheduleByDay = () => {
-    const slotsByDay = routineService.groupSlotsByDay(scheduleSlots);
+    const entriesByDay = routineService.groupEntriesByDay(scheduleEntries);
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const timeSlots = Array.from({ length: 8 }, (_, i) => i + 1);
 
@@ -220,41 +292,80 @@ const RoutineGenerator: React.FC = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Time</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', minWidth: 100 }}>Time</TableCell>
               {days.map((day, index) => (
-                <TableCell key={index} align="center">
+                <TableCell key={index} align="center" sx={{ fontWeight: 'bold' }}>
                   {day}
                 </TableCell>
               ))}
             </TableRow>
           </TableHead>
           <TableBody>
-            {timeSlots.map((slotNum) => (
-              <TableRow key={slotNum}>
-                <TableCell>{routineService.formatTimeSlot(1, slotNum).split(' ')[1]}</TableCell>
-                {days.map((_, dayIndex) => {
-                  const daySlots = slotsByDay.get(dayIndex + 1) || [];
-                  const slot = daySlots.find(s => s.slot_number === slotNum);
-                  return (
-                    <TableCell key={dayIndex} align="center">
-                      {slot && (
-                        <Paper elevation={2} sx={{ p: 1, bgcolor: 'primary.light', color: 'white' }}>
+            {timeSlots.map((slotNum) => {
+              const timeRange = routineService.formatTimeSlot(1, slotNum).split(' ')[1];
+              const isBreak = slotNum === 4;
+              
+              if (isBreak) {
+                return (
+                  <TableRow key="break">
+                    <TableCell sx={{ bgcolor: 'grey.100', fontWeight: 'bold' }}>
+                      12:40-13:50
+                    </TableCell>
+                    {days.map((_, index) => (
+                      <TableCell key={index} align="center" sx={{ bgcolor: 'grey.100' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          BREAK
+                        </Typography>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              }
+
+              return (
+                <TableRow key={slotNum}>
+                  <TableCell sx={{ fontWeight: 'medium' }}>{timeRange}</TableCell>
+                  {days.map((_, dayIndex) => {
+                    const dayEntries = entriesByDay.get(dayIndex + 1) || [];
+                    const entry = dayEntries.find(e => e.slot_number === slotNum);
+                    
+                    if (!entry) {
+                      return <TableCell key={dayIndex} align="center" />;
+                    }
+
+                    const isLab = entry.course_offering?.is_lab;
+                    const bgColor = isLab ? 'info.light' : 'primary.light';
+                    
+                    return (
+                      <TableCell key={dayIndex} align="center" sx={{ p: 0.5 }}>
+                        <Paper 
+                          elevation={2} 
+                          sx={{ 
+                            p: 1, 
+                            bgcolor: bgColor, 
+                            color: 'white',
+                            minHeight: 60,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center'
+                          }}
+                        >
                           <Typography variant="caption" display="block" fontWeight="bold">
-                            {slot.course_offering?.subject?.code}
+                            {entry.course_offering?.subject?.code}
                           </Typography>
                           <Typography variant="caption" display="block">
-                            {slot.room?.name}
+                            {entry.room?.name}
                           </Typography>
                           <Typography variant="caption">
-                            {slot.teacher?.name}
+                            {entry.teacher?.initials || entry.teacher?.name}
                           </Typography>
                         </Paper>
-                      )}
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            ))}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </TableContainer>
@@ -262,26 +373,97 @@ const RoutineGenerator: React.FC = () => {
   };
 
   const renderScheduleByRoom = () => {
-    const slotsByRoom = routineService.groupSlotsByRoom(scheduleSlots);
+    const entriesByRoom = routineService.groupEntriesByRoom(scheduleEntries);
 
     return (
       <Grid container spacing={2}>
-        {Array.from(slotsByRoom.entries()).map(([roomId, slots]) => {
-          const room = slots[0]?.room;
+        {Array.from(entriesByRoom.entries()).map(([roomId, entries]) => {
+          const room = entries[0]?.room;
           return (
             <Grid item xs={12} md={6} key={roomId}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
-                    <Room fontSize="small" sx={{ mr: 1 }} />
-                    {room?.name} ({room?.room_type})
+                    <Room fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
+                    {room?.name} ({room?.type})
                   </Typography>
+                  <Typography variant="caption" color="text.secondary" gutterBottom>
+                    Capacity: {room?.capacity || 'N/A'}
+                  </Typography>
+                  <Divider sx={{ my: 1 }} />
                   <List dense>
-                    {slots.map((slot, index) => (
+                    {entries.map((entry, index) => (
                       <ListItem key={index}>
                         <ListItemText
-                          primary={`${routineService.formatTimeSlot(slot.day_of_week, slot.slot_number)}`}
-                          secondary={`${slot.course_offering?.subject?.code} - ${slot.course_offering?.subject?.name} (${slot.teacher?.name})`}
+                          primary={`${routineService.formatTimeSlot(entry.day_of_week, entry.slot_number)}`}
+                          secondary={
+                            <React.Fragment>
+                              <Typography variant="caption" component="span">
+                                {entry.course_offering?.subject?.code} - {entry.course_offering?.subject?.name}
+                              </Typography>
+                              <br />
+                              <Typography variant="caption" component="span">
+                                Teacher: {entry.teacher?.name}
+                              </Typography>
+                            </React.Fragment>
+                          }
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </CardContent>
+              </Card>
+            </Grid>
+          );
+        })}
+      </Grid>
+    );
+  };
+
+  const renderScheduleByTeacher = () => {
+    const entriesByTeacher = routineService.groupEntriesByTeacher(scheduleEntries);
+
+    return (
+      <Grid container spacing={2}>
+        {Array.from(entriesByTeacher.entries()).map(([teacherId, entries]) => {
+          const teacher = entries[0]?.teacher;
+          const totalHours = entries.length;
+          
+          return (
+            <Grid item xs={12} md={6} key={teacherId}>
+              <Card>
+                <CardContent>
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="h6" gutterBottom>
+                      <Person fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
+                      {teacher?.name}
+                    </Typography>
+                    <Chip 
+                      label={`${totalHours} hours/week`} 
+                      size="small" 
+                      color="primary"
+                    />
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" gutterBottom>
+                    Department: {teacher?.department?.name || 'N/A'}
+                  </Typography>
+                  <Divider sx={{ my: 1 }} />
+                  <List dense>
+                    {entries.map((entry, index) => (
+                      <ListItem key={index}>
+                        <ListItemText
+                          primary={`${routineService.formatTimeSlot(entry.day_of_week, entry.slot_number)}`}
+                          secondary={
+                            <React.Fragment>
+                              <Typography variant="caption" component="span">
+                                {entry.course_offering?.subject?.code} - {entry.course_offering?.subject?.name}
+                              </Typography>
+                              <br />
+                              <Typography variant="caption" component="span">
+                                Room: {entry.room?.name}
+                              </Typography>
+                            </React.Fragment>
+                          }
                         />
                       </ListItem>
                     ))}
@@ -297,13 +479,15 @@ const RoutineGenerator: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PENDING': return 'warning';
-      case 'COMPLETED': return 'success';
+      case 'DRAFT': return 'warning';
+      case 'COMMITTED': return 'success';
       case 'FAILED': return 'error';
       case 'CANCELLED': return 'default';
       default: return 'default';
     }
   };
+
+  const steps = ['Select & Generate', 'Review Schedule', 'Commit'];
 
   if (loading) return <LoadingSpinner />;
 
@@ -314,95 +498,158 @@ const RoutineGenerator: React.FC = () => {
           <Typography variant="h5" component="h2" gutterBottom>
             Routine Generator
           </Typography>
+          
+          <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
+            {steps.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
 
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Select Semester Offering</InputLabel>
-                <Select
-                  value={selectedOffering}
-                  onChange={(e) => setSelectedOffering(e.target.value as number | '')}
-                  label="Select Semester Offering"
-                >
-                  <MenuItem value="">Select an offering</MenuItem>
-                  {semesterOfferings.map((offering) => (
-                    <MenuItem key={offering.id} value={offering.id}>
-                      {offering.programme?.name} - {offering.department?.name} - 
-                      Semester {offering.semester_number} ({offering.session?.name} {offering.session?.academic_year})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+          {activeStep === 0 && (
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Select Semester Offering</InputLabel>
+                  <Select
+                    value={selectedOffering}
+                    onChange={(e) => setSelectedOffering(e.target.value as number | '')}
+                    label="Select Semester Offering"
+                  >
+                    <MenuItem value="">Select an offering</MenuItem>
+                    {semesterOfferings.map((offering) => (
+                      <MenuItem key={offering.id} value={offering.id}>
+                        {offering.programme?.name} - {offering.department?.name} - 
+                        Semester {offering.semester_number} ({offering.session?.name} {offering.session?.academic_year})
+                        <Chip 
+                          label={`${offering.course_offerings?.length || 0} courses`}
+                          size="small"
+                          sx={{ ml: 1 }}
+                        />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {selectedOfferingData && (
+                <Grid item xs={12}>
+                  <Accordion defaultExpanded>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Typography>Course Offerings Summary</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Grid container spacing={2}>
+                        {selectedOfferingData.course_offerings?.map((course) => (
+                          <Grid item xs={12} sm={6} md={4} key={course.id}>
+                            <Paper sx={{ p: 2 }}>
+                              <Typography variant="subtitle2" gutterBottom>
+                                {course.subject?.code} - {course.subject?.name}
+                              </Typography>
+                              <Typography variant="caption" display="block">
+                                Credits: {course.subject?.credit}
+                              </Typography>
+                              <Typography variant="caption" display="block">
+                                Weekly Slots: {course.weekly_required_slots}
+                              </Typography>
+                              <Typography variant="caption" display="block">
+                                Type: {course.is_lab ? 'Lab' : 'Theory'}
+                              </Typography>
+                              {course.teacher_assignments && course.teacher_assignments.length > 0 && (
+                                <Typography variant="caption" display="block" color="primary">
+                                  Teachers: {course.teacher_assignments.map(ta => ta.teacher?.initials).join(', ')}
+                                </Typography>
+                              )}
+                              {course.room_assignments && course.room_assignments.length > 0 && (
+                                <Typography variant="caption" display="block" color="secondary">
+                                  Rooms: {course.room_assignments.map(ra => ra.room?.name).join(', ')}
+                                </Typography>
+                              )}
+                            </Paper>
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </AccordionDetails>
+                  </Accordion>
+                </Grid>
+              )}
+
+              <Grid item xs={12}>
+                <Box display="flex" justifyContent="center" gap={2}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    startIcon={generating ? <CircularProgress size={20} color="inherit" /> : <PlayArrow />}
+                    onClick={handleGenerateRoutine}
+                    disabled={!selectedOffering || generating}
+                  >
+                    {generating ? 'Generating...' : 'Generate Routine'}
+                  </Button>
+                </Box>
+              </Grid>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <Box display="flex" gap={2}>
-                <Button
-                  variant="contained"
-                  startIcon={<Settings />}
-                  onClick={() => setOpenSettings(true)}
-                  disabled={!selectedOffering || generating}
-                >
-                  Configure
-                </Button>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={generating ? <CircularProgress size={20} /> : <PlayArrow />}
-                  onClick={handleGenerateRoutine}
-                  disabled={!selectedOffering || generating}
-                >
-                  {generating ? 'Generating...' : 'Generate Routine'}
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
+          )}
         </CardContent>
       </Card>
 
       {error && <ErrorAlert message={error} />}
+      {success && (
+        <Alert severity="success" onClose={() => setSuccess(null)} sx={{ mb: 2 }}>
+          {success}
+        </Alert>
+      )}
 
       {scheduleRuns.length > 0 && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
+              <History sx={{ mr: 1, verticalAlign: 'middle' }} />
               Previous Schedule Runs
             </Typography>
             <List>
-              {scheduleRuns.map((run) => (
+              {scheduleRuns.slice(0, 5).map((run) => (
                 <ListItem
                   key={run.id}
                   secondaryAction={
                     <Box>
-                      <IconButton
-                        onClick={() => handleViewSchedule(run)}
-                        color="primary"
-                      >
-                        <Visibility />
-                      </IconButton>
-                      {run.status === 'COMPLETED' && !run.is_committed && (
+                      <Tooltip title="View Schedule">
                         <IconButton
-                          onClick={() => {
-                            setCurrentSchedule(run);
-                            setCommitDialog(true);
-                          }}
-                          color="success"
+                          onClick={() => handleViewSchedule(run)}
+                          color="primary"
                         >
-                          <CheckCircle />
+                          <Visibility />
                         </IconButton>
-                      )}
-                      {run.status === 'PENDING' && (
-                        <IconButton
-                          onClick={() => handleCancelSchedule(run.id)}
-                          color="error"
-                        >
-                          <Cancel />
-                        </IconButton>
+                      </Tooltip>
+                      {run.status === 'DRAFT' && (
+                        <>
+                          <Tooltip title="Commit Schedule">
+                            <IconButton
+                              onClick={() => {
+                                setCurrentSchedule(run);
+                                setCommitDialog(true);
+                              }}
+                              color="success"
+                            >
+                              <Save />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Cancel Schedule">
+                            <IconButton
+                              onClick={() => handleCancelSchedule(run.id)}
+                              color="error"
+                            >
+                              <Cancel />
+                            </IconButton>
+                          </Tooltip>
+                        </>
                       )}
                     </Box>
                   }
                 >
                   <ListItemText
-                    primary={`Run #${run.id} - ${new Date(run.created_at).toLocaleString()}`}
+                    primary={`Run #${run.id} - ${new Date(run.generated_at).toLocaleString()}`}
                     secondary={
                       <Box display="flex" gap={1} alignItems="center">
                         <Chip
@@ -410,17 +657,11 @@ const RoutineGenerator: React.FC = () => {
                           size="small"
                           color={getStatusColor(run.status)}
                         />
-                        {run.is_committed && (
-                          <Chip
-                            label="COMMITTED"
-                            size="small"
-                            color="success"
-                            variant="outlined"
-                          />
+                        {run.committed_at && (
+                          <Typography variant="caption">
+                            Committed: {new Date(run.committed_at).toLocaleString()}
+                          </Typography>
                         )}
-                        <Typography variant="caption">
-                          Score: {run.final_score?.toFixed(2) || 'N/A'}
-                        </Typography>
                       </Box>
                     }
                   />
@@ -431,26 +672,53 @@ const RoutineGenerator: React.FC = () => {
         </Card>
       )}
 
-      {currentSchedule && scheduleSlots.length > 0 && (
+      {currentSchedule && scheduleEntries.length > 0 && (
         <Card>
           <CardContent>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
               <Typography variant="h6">
                 Generated Schedule
+                {currentSchedule.status === 'COMMITTED' && (
+                  <Chip 
+                    label="COMMITTED" 
+                    size="small" 
+                    color="success" 
+                    sx={{ ml: 2 }}
+                  />
+                )}
               </Typography>
               <Box display="flex" gap={1}>
-                <Button startIcon={<Download />} variant="outlined">
-                  Export
+                <Button 
+                  startIcon={<Download />} 
+                  variant="outlined"
+                  onClick={handleExportCSV}
+                >
+                  Export CSV
                 </Button>
-                <Button startIcon={<Print />} variant="outlined">
+                <Button 
+                  startIcon={<Print />} 
+                  variant="outlined"
+                  onClick={handlePrint}
+                >
                   Print
                 </Button>
+                {currentSchedule.status === 'DRAFT' && (
+                  <Button
+                    startIcon={<CheckCircle />}
+                    variant="contained"
+                    color="success"
+                    onClick={() => setCommitDialog(true)}
+                  >
+                    Commit Schedule
+                  </Button>
+                )}
               </Box>
             </Box>
 
             <Tabs value={viewMode} onChange={(_, value) => setViewMode(value)}>
-              <Tab label="By Day" />
-              <Tab label="By Room" />
+              <Tab label="By Day" icon={<CalendarMonth />} iconPosition="start" />
+              <Tab label="By Room" icon={<Room />} iconPosition="start" />
+              <Tab label="By Teacher" icon={<Person />} iconPosition="start" />
             </Tabs>
 
             <TabPanel value={viewMode} index={0}>
@@ -459,78 +727,49 @@ const RoutineGenerator: React.FC = () => {
             <TabPanel value={viewMode} index={1}>
               {renderScheduleByRoom()}
             </TabPanel>
+            <TabPanel value={viewMode} index={2}>
+              {renderScheduleByTeacher()}
+            </TabPanel>
+
+            {currentSchedule.meta && (
+              <Box mt={3}>
+                <Alert severity="info" icon={<Info />}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Generation Report
+                  </Typography>
+                  {currentSchedule.meta.total_blocks && (
+                    <Typography variant="caption" display="block">
+                      Total Blocks: {currentSchedule.meta.total_blocks}
+                    </Typography>
+                  )}
+                  {currentSchedule.meta.placed_blocks && (
+                    <Typography variant="caption" display="block">
+                      Placed Blocks: {currentSchedule.meta.placed_blocks}
+                    </Typography>
+                  )}
+                  {currentSchedule.meta.unplaced_blocks > 0 && (
+                    <Typography variant="caption" display="block" color="error">
+                      Unplaced Blocks: {currentSchedule.meta.unplaced_blocks}
+                    </Typography>
+                  )}
+                  {currentSchedule.meta.conflicts && currentSchedule.meta.conflicts.length > 0 && (
+                    <>
+                      <Typography variant="caption" display="block" color="error">
+                        Conflicts:
+                      </Typography>
+                      {currentSchedule.meta.conflicts.map((conflict: string, index: number) => (
+                        <Typography key={index} variant="caption" display="block" sx={{ pl: 2 }}>
+                          • {conflict}
+                        </Typography>
+                      ))}
+                    </>
+                  )}
+                </Alert>
+              </Box>
+            )}
           </CardContent>
         </Card>
       )}
-
-      {/* Settings Dialog */}
-      <Dialog open={openSettings} onClose={() => setOpenSettings(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Generation Settings</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={generationSettings.respect_teacher_preferences}
-                  onChange={(e) => setGenerationSettings(prev => ({
-                    ...prev,
-                    respect_teacher_preferences: e.target.checked
-                  }))}
-                />
-              }
-              label="Respect Teacher Preferences"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={generationSettings.respect_room_preferences}
-                  onChange={(e) => setGenerationSettings(prev => ({
-                    ...prev,
-                    respect_room_preferences: e.target.checked
-                  }))}
-                />
-              }
-              label="Respect Room Preferences"
-            />
-            <Box sx={{ mt: 3 }}>
-              <Typography gutterBottom>
-                Max Iterations: {generationSettings.max_iterations}
-              </Typography>
-              <Slider
-                value={generationSettings.max_iterations}
-                onChange={(_, value) => setGenerationSettings(prev => ({
-                  ...prev,
-                  max_iterations: value as number
-                }))}
-                min={100}
-                max={5000}
-                step={100}
-              />
-            </Box>
-            <Box sx={{ mt: 3 }}>
-              <Typography gutterBottom>
-                Temperature: {generationSettings.temperature}
-              </Typography>
-              <Slider
-                value={generationSettings.temperature}
-                onChange={(_, value) => setGenerationSettings(prev => ({
-                  ...prev,
-                  temperature: value as number
-                }))}
-                min={0.1}
-                max={2.0}
-                step={0.1}
-              />
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenSettings(false)}>Cancel</Button>
-          <Button onClick={() => setOpenSettings(false)} variant="contained">
-            Save Settings
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Commit Dialog */}
       <Dialog open={commitDialog} onClose={() => setCommitDialog(false)} maxWidth="sm" fullWidth>
@@ -538,16 +777,11 @@ const RoutineGenerator: React.FC = () => {
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
             Once committed, this schedule will be finalized and cannot be modified.
+            All assigned teachers and rooms will be permanently booked for these time slots.
           </Alert>
-          <TextField
-            fullWidth
-            label="Commit Message"
-            multiline
-            rows={3}
-            value={commitMessage}
-            onChange={(e) => setCommitMessage(e.target.value)}
-            placeholder="Add a message describing this schedule..."
-          />
+          <Typography variant="body2">
+            Are you sure you want to commit this schedule?
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCommitDialog(false)}>Cancel</Button>
