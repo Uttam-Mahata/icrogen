@@ -48,6 +48,7 @@ type ScheduleBlock struct {
 	SlotStart        int              `json:"slot_start" gorm:"not null"`
 	SlotLength       int              `json:"slot_length" gorm:"not null"` // 1, 2, or 3 slots
 	IsLab            bool             `json:"is_lab" gorm:"default:false"`
+	LabGroup         string           `json:"lab_group,omitempty" gorm:"type:varchar(10)"` // e.g., Gx, Gy, Gz
 	CreatedAt        time.Time        `json:"created_at"`
 	UpdatedAt        time.Time        `json:"updated_at"`
 	DeletedAt        gorm.DeletedAt   `json:"-" gorm:"index"`
@@ -72,6 +73,7 @@ type ScheduleEntry struct {
 	DayOfWeek            int              `json:"day_of_week" gorm:"not null"`
 	SlotNumber           int              `json:"slot_number" gorm:"not null"`
 	BlockID              *uint            `json:"block_id"` // Reference to parent block
+	LabGroup             string           `json:"lab_group,omitempty" gorm:"type:varchar(10)"` // e.g., Gx, Gy, Gz
 	CreatedAt            time.Time        `json:"created_at"`
 	UpdatedAt            time.Time        `json:"updated_at"`
 	DeletedAt            gorm.DeletedAt   `json:"-" gorm:"index"`
@@ -88,13 +90,14 @@ type ScheduleEntry struct {
 
 // ClassBlock represents a class session to be scheduled (used in algorithm)
 type ClassBlock struct {
-	SubjectID         uint `json:"subject_id"`
-	TeacherID         uint `json:"teacher_id"`
-	RoomID            uint `json:"room_id"`
-	DurationSlots     int  `json:"duration_slots"` // 1, 2, or 3 slots
-	IsLab             bool `json:"is_lab"`
-	SemesterOfferingID uint `json:"semester_offering_id"`
-	CourseOfferingID  uint `json:"course_offering_id"`
+	SubjectID         uint   `json:"subject_id"`
+	TeacherID         uint   `json:"teacher_id"`
+	RoomID            uint   `json:"room_id"`
+	DurationSlots     int    `json:"duration_slots"` // 1, 2, or 3 slots
+	IsLab             bool   `json:"is_lab"`
+	LabGroup          string `json:"lab_group,omitempty"` // "Gx", "Gy" for lab divisions
+	SemesterOfferingID uint  `json:"semester_offering_id"`
+	CourseOfferingID  uint   `json:"course_offering_id"`
 }
 
 // TimeSlotInfo represents timetable slot information during generation

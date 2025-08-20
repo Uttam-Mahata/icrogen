@@ -45,6 +45,7 @@ export interface SubjectType {
   id: number;
   name: string;
   is_lab: boolean;
+  requires_room: boolean;
   default_consecutive_preferred: boolean;
   created_at: string;
   updated_at: string;
@@ -109,6 +110,7 @@ export interface SemesterOffering {
   department_id: number;
   session_id: number;
   semester_number: number;
+  total_students: number;
   status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
   programme?: Programme;
   department?: Department;
@@ -124,7 +126,9 @@ export interface CourseOffering {
   weekly_required_slots: number;
   required_pattern?: string;
   is_lab: boolean;
+  lab_group?: string;
   preferred_room_id?: number | null;
+  requires_room: boolean;
   notes?: string;
   semester_offering?: SemesterOffering;
   subject?: Subject;
@@ -177,6 +181,7 @@ export interface ScheduleBlock {
   slot_start: number;
   slot_length: number;
   is_lab: boolean;
+  lab_group?: string;
   schedule_run?: ScheduleRun;
   course_offering?: CourseOffering;
   teacher?: Teacher;
@@ -194,6 +199,7 @@ export interface ScheduleEntry {
   day_of_week: number;
   slot_number: number;
   block_id: number;
+  lab_group?: string;
   schedule_run?: ScheduleRun;
   semester_offering?: SemesterOffering;
   session?: Session;

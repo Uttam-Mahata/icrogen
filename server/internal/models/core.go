@@ -66,6 +66,7 @@ type SubjectType struct {
 	ID                        uint           `json:"id" gorm:"primaryKey;autoIncrement"`
 	Name                      string         `json:"name" gorm:"type:varchar(100);not null;uniqueIndex"`
 	IsLab                     bool           `json:"is_lab" gorm:"default:false"`
+	RequiresRoom              bool           `json:"requires_room" gorm:"default:true"`
 	DefaultConsecutivePreferred bool        `json:"default_consecutive_preferred" gorm:"default:true"`
 	CreatedAt                 time.Time      `json:"created_at"`
 	UpdatedAt                 time.Time      `json:"updated_at"`

@@ -72,6 +72,7 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
     weekly_required_slots: 3,
     required_pattern: '',
     preferred_room_id: null as number | null,
+    requires_room: true,
     teacher_ids: [] as number[],
     notes: '',
   });
@@ -125,7 +126,8 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
         subject_id: courseFormData.subject_id,
         weekly_required_slots: courseFormData.weekly_required_slots,
         required_pattern: courseFormData.required_pattern || undefined,
-        preferred_room_id: courseFormData.preferred_room_id,
+        preferred_room_id: courseFormData.requires_room ? courseFormData.preferred_room_id : null,
+        requires_room: courseFormData.requires_room,
         teacher_ids: courseFormData.teacher_ids,
         notes: courseFormData.notes || undefined,
       };
@@ -137,6 +139,7 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
         weekly_required_slots: 3,
         required_pattern: '',
         preferred_room_id: null,
+        requires_room: true,
         teacher_ids: [],
         notes: '',
       });
@@ -320,15 +323,19 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
                         </TableCell>
                         <TableCell>
                           <Box display="flex" flexDirection="column" gap={0.5}>
-                            {course.room_assignments?.map(ra => (
-                              <Chip
-                                key={ra.room_id}
-                                label={`${ra.room?.name} (${ra.room?.type})`}
-                                size="small"
-                                icon={<Room fontSize="small" />}
-                                onDelete={() => handleRemoveRoom(course.id, ra.room_id)}
-                              />
-                            )) || <Typography variant="caption" color="text.secondary">No rooms assigned</Typography>}
+                            {course.requires_room === false ? (
+                              <Typography variant="caption" color="text.secondary">Room not required</Typography>
+                            ) : (
+                              course.room_assignments?.map(ra => (
+                                <Chip
+                                  key={ra.room_id}
+                                  label={`${ra.room?.name} (${ra.room?.type})`}
+                                  size="small"
+                                  icon={<Room fontSize="small" />}
+                                  onDelete={() => handleRemoveRoom(course.id, ra.room_id)}
+                                />
+                              )) || <Typography variant="caption" color="text.secondary">No rooms assigned</Typography>
+                            )}
                           </Box>
                         </TableCell>
                         <TableCell align="center">
@@ -374,7 +381,16 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
                   <InputLabel>Subject</InputLabel>
                   <Select
                     value={courseFormData.subject_id || ''}
-                    onChange={(e) => setCourseFormData(prev => ({ ...prev, subject_id: Number(e.target.value) }))}
+                    onChange={(e) => {
+                      const subjectId = Number(e.target.value);
+                      const subject = subjects.find(s => s.id === subjectId);
+                      const requiresRoom = subject?.subject_type?.requires_room !== false;
+                      setCourseFormData(prev => ({ 
+                        ...prev, 
+                        subject_id: subjectId,
+                        requires_room: requiresRoom
+                      }));
+                    }}
                     label="Subject"
                     required
                   >
@@ -382,6 +398,7 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
                     {subjects.map(subject => (
                       <MenuItem key={subject.id} value={subject.id}>
                         {subject.code} - {subject.name} ({subject.subject_type?.name})
+                        {subject.subject_type?.requires_room === false && ' (No Room Required)'}
                       </MenuItem>
                     ))}
                   </Select>
@@ -407,23 +424,32 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
                   helperText="Optional: Specify slot pattern"
                 />
               </Grid>
-              <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel>Preferred Room</InputLabel>
-                  <Select
-                    value={courseFormData.preferred_room_id || ''}
-                    onChange={(e) => setCourseFormData(prev => ({ ...prev, preferred_room_id: e.target.value ? Number(e.target.value) : null }))}
-                    label="Preferred Room"
-                  >
-                    <MenuItem value="">No Preference (Auto-assign)</MenuItem>
-                    {rooms.map(room => (
-                      <MenuItem key={room.id} value={room.id}>
-                        {room.name} ({room.type}, Capacity: {room.capacity})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
+              {courseFormData.requires_room && (
+                <Grid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel>Preferred Room</InputLabel>
+                    <Select
+                      value={courseFormData.preferred_room_id || ''}
+                      onChange={(e) => setCourseFormData(prev => ({ ...prev, preferred_room_id: e.target.value ? Number(e.target.value) : null }))}
+                      label="Preferred Room"
+                    >
+                      <MenuItem value="">No Preference (Auto-assign)</MenuItem>
+                      {rooms.map(room => (
+                        <MenuItem key={room.id} value={room.id}>
+                          {room.name} ({room.type}, Capacity: {room.capacity})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+              {!courseFormData.requires_room && (
+                <Grid item xs={12}>
+                  <Alert severity="info">
+                    This subject type does not require a room assignment.
+                  </Alert>
+                </Grid>
+              )}
               <Grid item xs={12}>
                 <FormControl fullWidth>
                   <InputLabel>Assign Teachers</InputLabel>

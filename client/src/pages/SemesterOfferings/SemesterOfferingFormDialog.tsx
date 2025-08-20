@@ -14,6 +14,7 @@ import {
   Typography,
   Box,
   Chip,
+  TextField,
 } from '@mui/material';
 import { type SemesterOffering, type Programme, type Department, type Session } from '../../types/models';
 import { semesterOfferingService, type CreateSemesterOfferingRequest, type UpdateSemesterOfferingRequest } from '../../services/semesterOfferingService';
@@ -39,6 +40,7 @@ const SemesterOfferingFormDialog: React.FC<SemesterOfferingFormDialogProps> = ({
     department_id: 0,
     session_id: 0,
     semester_number: 1,
+    total_students: 0,
     status: 'DRAFT' as 'DRAFT' | 'ACTIVE' | 'ARCHIVED',
   });
   const [programmes, setProgrammes] = useState<Programme[]>([]);
@@ -58,6 +60,7 @@ const SemesterOfferingFormDialog: React.FC<SemesterOfferingFormDialogProps> = ({
           department_id: offering.department_id,
           session_id: offering.session_id,
           semester_number: offering.semester_number,
+          total_students: offering.total_students || 0,
           status: offering.status,
         });
       } else {
@@ -66,6 +69,7 @@ const SemesterOfferingFormDialog: React.FC<SemesterOfferingFormDialogProps> = ({
           department_id: 0,
           session_id: 0,
           semester_number: 1,
+          total_students: 0,
           status: 'DRAFT',
         });
       }
@@ -306,6 +310,19 @@ const SemesterOfferingFormDialog: React.FC<SemesterOfferingFormDialogProps> = ({
                     </Typography>
                   )}
                 </FormControl>
+              </Grid>
+              
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Total Students"
+                  type="number"
+                  value={formData.total_students}
+                  onChange={(e) => handleChange('total_students', Number(e.target.value))}
+                  error={!!errors.total_students}
+                  helperText={errors.total_students || 'Number of students enrolled (used for lab group division)'}
+                  inputProps={{ min: 0, max: 500 }}
+                />
               </Grid>
             </>
           )}

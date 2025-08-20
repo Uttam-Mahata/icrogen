@@ -43,6 +43,7 @@ type SemesterOffering struct {
 	DepartmentID   uint             `json:"department_id" gorm:"not null"`
 	SessionID      uint             `json:"session_id" gorm:"not null"`
 	SemesterNumber int              `json:"semester_number" gorm:"not null"`
+	TotalStudents  int              `json:"total_students" gorm:"default:0"`
 	Status         string           `json:"status" gorm:"type:enum('DRAFT','ACTIVE','ARCHIVED');default:'DRAFT'"`
 	CreatedAt      time.Time        `json:"created_at"`
 	UpdatedAt      time.Time        `json:"updated_at"`
@@ -64,7 +65,9 @@ type CourseOffering struct {
 	WeeklyRequiredSlots  int                  `json:"weekly_required_slots" gorm:"not null"`
 	RequiredPattern      string               `json:"required_pattern" gorm:"type:json"` // JSON array like ["2+2"] or ["3"]
 	IsLab                bool                 `json:"is_lab" gorm:"default:false"`
+	LabGroup             string               `json:"lab_group" gorm:"type:varchar(10)"` // "Gx", "Gy", etc. for lab divisions
 	PreferredRoomID      *uint                `json:"preferred_room_id"`
+	RequiresRoom         bool                 `json:"requires_room" gorm:"default:true"`
 	Notes                string               `json:"notes" gorm:"type:text"`
 	CreatedAt            time.Time            `json:"created_at"`
 	UpdatedAt            time.Time            `json:"updated_at"`

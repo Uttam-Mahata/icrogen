@@ -18,7 +18,11 @@ export interface CommitScheduleRequest {
 
 class RoutineService {
   async generateRoutine(data: GenerateRoutineRequest): Promise<ScheduleRun> {
-    return apiClient.post<ScheduleRun>(API_ENDPOINTS.routines.generate, data);
+    // Routine generation can take a long time due to complex calculations
+    // Increase timeout to 5 minutes (300000ms)
+    return apiClient.post<ScheduleRun>(API_ENDPOINTS.routines.generate, data, {
+      timeout: 300000
+    });
   }
 
   async getScheduleRun(id: number): Promise<ScheduleRun> {
@@ -37,6 +41,10 @@ class RoutineService {
 
   async cancelSchedule(id: number): Promise<void> {
     return apiClient.post(API_ENDPOINTS.routines.cancel(id), {});
+  }
+
+  async deleteSchedule(id: number): Promise<void> {
+    return apiClient.delete(API_ENDPOINTS.routines.delete(id));
   }
 
   async getScheduleEntries(scheduleRunId: number): Promise<ScheduleEntry[]> {

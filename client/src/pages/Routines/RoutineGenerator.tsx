@@ -59,6 +59,7 @@ import {
   Refresh,
   Save,
   History,
+  Delete,
 } from '@mui/icons-material';
 import { 
   type SemesterOffering, 
@@ -239,6 +240,22 @@ const RoutineGenerator: React.FC = () => {
     }
   };
 
+  const handleDeleteSchedule = async (runId: number) => {
+    if (confirm('Are you sure you want to permanently delete this schedule run? This action cannot be undone.')) {
+      try {
+        await routineService.deleteSchedule(runId);
+        await fetchScheduleRuns(selectedOffering as number);
+        if (currentSchedule?.id === runId) {
+          setCurrentSchedule(null);
+          setScheduleEntries([]);
+        }
+        setSuccess('Schedule deleted successfully');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to delete schedule');
+      }
+    }
+  };
+
   const handleExportCSV = () => {
     if (scheduleEntries.length === 0) return;
     
@@ -352,6 +369,7 @@ const RoutineGenerator: React.FC = () => {
                         >
                           <Typography variant="caption" display="block" fontWeight="bold">
                             {entry.course_offering?.subject?.code}
+                            {entry.lab_group && ` (${entry.lab_group})`}
                           </Typography>
                           <Typography variant="caption" display="block">
                             {entry.room?.name}
@@ -638,12 +656,22 @@ const RoutineGenerator: React.FC = () => {
                           <Tooltip title="Cancel Schedule">
                             <IconButton
                               onClick={() => handleCancelSchedule(run.id)}
-                              color="error"
+                              color="warning"
                             >
                               <Cancel />
                             </IconButton>
                           </Tooltip>
                         </>
+                      )}
+                      {(run.status === 'DRAFT' || run.status === 'CANCELLED' || run.status === 'FAILED') && (
+                        <Tooltip title="Delete Schedule">
+                          <IconButton
+                            onClick={() => handleDeleteSchedule(run.id)}
+                            color="error"
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Tooltip>
                       )}
                     </Box>
                   }

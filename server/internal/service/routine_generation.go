@@ -17,6 +17,7 @@ type RoutineGenerationService interface {
 	GenerateRoutine(semesterOfferingID uint) (*models.ScheduleRun, error)
 	CommitScheduleRun(scheduleRunID uint) error
 	CancelScheduleRun(scheduleRunID uint) error
+	DeleteScheduleRun(scheduleRunID uint) error
 	GetScheduleRun(scheduleRunID uint) (*models.ScheduleRun, error)
 	GetScheduleRunsBySemesterOffering(semesterOfferingID uint) ([]models.ScheduleRun, error)
 }
@@ -76,6 +77,9 @@ func (s *routineGenerationService) GenerateRoutine(semesterOfferingID uint) (*mo
 	if err != nil {
 		return nil, fmt.Errorf("failed to get semester offering: %w", err)
 	}
+	
+	logrus.Infof("Semester offering loaded: ID=%d, TotalStudents=%d, CourseOfferings=%d", 
+		semesterOffering.ID, semesterOffering.TotalStudents, len(semesterOffering.CourseOfferings))
 	
 	// Create a new schedule run
 	scheduleRun := &models.ScheduleRun{
@@ -143,40 +147,86 @@ func (s *routineGenerationService) GenerateRoutine(semesterOfferingID uint) (*mo
 func (s *routineGenerationService) generateClassBlocks(courseOfferings []models.CourseOffering) ([]models.ClassBlock, error) {
 	var blocks []models.ClassBlock
 	
+	logrus.Infof("Generating class blocks for %d course offerings", len(courseOfferings))
+	
 	for _, offering := range courseOfferings {
+		logrus.Debugf("Processing offering ID: %d, SubjectID: %d, IsLab: %v, SemesterOfferingID: %d", 
+			offering.ID, offering.SubjectID, offering.IsLab, offering.SemesterOfferingID)
+		logrus.Debugf("  RoomAssignments count: %d, TeacherAssignments count: %d", 
+			len(offering.RoomAssignments), len(offering.TeacherAssignments))
 		// Determine how many blocks needed based on weekly required slots
 		weeklySlots := offering.WeeklyRequiredSlots
 		isLab := offering.IsLab
 		
-		// Get assigned teachers and rooms
+		// Get assigned teachers
 		if len(offering.TeacherAssignments) == 0 {
 			logrus.Warnf("No teachers assigned to course offering %d (subject: %s), skipping", 
 				offering.ID, offering.Subject.Name)
 			continue // Skip this offering instead of failing
 		}
 		
-		if len(offering.RoomAssignments) == 0 {
-			logrus.Warnf("No rooms assigned to course offering %d (subject: %s), skipping", 
-				offering.ID, offering.Subject.Name)
-			continue // Skip this offering instead of failing
+		// Check if room is required
+		var roomID uint
+		if offering.RequiresRoom {
+			logrus.Debugf("Offering %d requires room, RoomAssignments count: %d", offering.ID, len(offering.RoomAssignments))
+			if len(offering.RoomAssignments) == 0 {
+				logrus.Warnf("No rooms assigned to course offering %d (subject: %s) that requires room, skipping", 
+					offering.ID, offering.Subject.Name)
+				continue // Skip this offering instead of failing
+			}
+			roomID = offering.RoomAssignments[0].RoomID
+			logrus.Debugf("Using room ID: %d for offering %d", roomID, offering.ID)
+		} else {
+			// For subjects that don't require room (like Other type)
+			roomID = 0 // Will be handled specially in placement logic
+			logrus.Debugf("Offering %d does not require room", offering.ID)
 		}
 		
-		// Use first assigned teacher and room (can be enhanced for multiple assignments)
+		// Use first assigned teacher
 		teacherID := offering.TeacherAssignments[0].TeacherID
-		roomID := offering.RoomAssignments[0].RoomID
 		
 		if isLab {
-			// Labs are typically 3-hour blocks, once per week
-			block := models.ClassBlock{
-				SubjectID:          offering.SubjectID,
-				TeacherID:          teacherID,
-				RoomID:             roomID,
-				DurationSlots:      3,
-				IsLab:              true,
-				SemesterOfferingID: offering.SemesterOfferingID,
-				CourseOfferingID:   offering.ID,
+			logrus.Debugf("Processing lab offering ID: %d", offering.ID)
+			// Check if lab needs to be divided into groups
+			labGroups := s.determineLabGroups(offering)
+			
+			logrus.Debugf("Lab groups returned: %v (length: %d)", labGroups, len(labGroups))
+			
+			// Check if we actually have multiple groups (not just empty strings)
+			hasMultipleGroups := len(labGroups) > 1 || (len(labGroups) == 1 && labGroups[0] != "")
+			
+			if hasMultipleGroups && len(labGroups) > 1 {
+				// Create separate blocks for each lab group
+				logrus.Infof("Creating %d lab blocks for groups: %v", len(labGroups), labGroups)
+				for _, group := range labGroups {
+					block := models.ClassBlock{
+						SubjectID:          offering.SubjectID,
+						TeacherID:          teacherID,
+						RoomID:             roomID,
+						DurationSlots:      3,
+						IsLab:              true,
+						LabGroup:           group,
+						SemesterOfferingID: offering.SemesterOfferingID,
+						CourseOfferingID:   offering.ID,
+					}
+					logrus.Debugf("Created lab block with group: %s", group)
+					blocks = append(blocks, block)
+				}
+			} else {
+				// Single lab block for all students (no group division needed)
+				logrus.Infof("Creating single lab block without group division")
+				block := models.ClassBlock{
+					SubjectID:          offering.SubjectID,
+					TeacherID:          teacherID,
+					RoomID:             roomID,
+					DurationSlots:      3,
+					IsLab:              true,
+					LabGroup:           "", // Empty string when no division is needed
+					SemesterOfferingID: offering.SemesterOfferingID,
+					CourseOfferingID:   offering.ID,
+				}
+				blocks = append(blocks, block)
 			}
-			blocks = append(blocks, block)
 		} else {
 			// Theory subjects - create blocks based on credit and weekly load
 			// Apply patterns from DESIGN document
@@ -198,6 +248,85 @@ func (s *routineGenerationService) generateClassBlocks(courseOfferings []models.
 	}
 	
 	return blocks, nil
+}
+
+// determineLabGroups determines if a lab needs to be split into groups based on capacity
+func (s *routineGenerationService) determineLabGroups(offering models.CourseOffering) []string {
+	logrus.Infof("=== DETERMINING LAB GROUPS for offering ID: %d ===", offering.ID)
+	if offering.Subject.ID != 0 {
+		logrus.Infof("  Subject: %s (ID: %d)", offering.Subject.Name, offering.Subject.ID)
+	}
+	
+	// Get semester offering to check total students
+	semesterOffering, err := s.semesterOfferingRepo.GetByID(offering.SemesterOfferingID)
+	if err != nil {
+		logrus.Errorf("Failed to get semester offering %d: %v", offering.SemesterOfferingID, err)
+		return []string{""} // No group division needed
+	}
+	
+	logrus.Infof("  Semester offering total students: %d", semesterOffering.TotalStudents)
+	
+	if semesterOffering.TotalStudents == 0 {
+		logrus.Warn("  Total students is 0, no group division needed")
+		return []string{""} // No group division needed
+	}
+	
+	// Get room capacity if room is assigned
+	if len(offering.RoomAssignments) == 0 {
+		logrus.Warnf("  No room assigned to offering %d, can't determine capacity", offering.ID)
+		return []string{""} // No room assigned, can't determine capacity
+	}
+	
+	logrus.Infof("  Room assignments found: %d", len(offering.RoomAssignments))
+	
+	room, err := s.roomRepo.GetByID(offering.RoomAssignments[0].RoomID)
+	if err != nil {
+		logrus.Errorf("  Failed to get room %d: %v", offering.RoomAssignments[0].RoomID, err)
+		return []string{""} // Can't determine capacity
+	}
+	
+	logrus.Infof("  Room: %s (Type: %s, Capacity: %d)", room.Name, room.Type, room.Capacity)
+	
+	if room.Capacity == 0 {
+		logrus.Warn("  Room capacity is 0, can't determine groups")
+		return []string{""} // Can't determine capacity
+	}
+	
+	totalStudents := semesterOffering.TotalStudents
+	roomCapacity := room.Capacity
+	
+	// If room can accommodate all students, no division needed
+	if roomCapacity >= totalStudents {
+		logrus.Infof("  Room capacity (%d) >= total students (%d), no division needed", roomCapacity, totalStudents)
+		return []string{""}
+	}
+	
+	// Calculate number of groups needed
+	numGroups := (totalStudents + roomCapacity - 1) / roomCapacity // Ceiling division
+	
+	logrus.Infof("  NEED TO DIVIDE LAB INTO %d GROUPS (Students: %d, Room capacity: %d)", numGroups, totalStudents, roomCapacity)
+	
+	// Generate group labels (Gx, Gy, Gz, etc.)
+	groups := []string{}
+	groupLabels := []string{"Gx", "Gy", "Gz", "Ga", "Gb", "Gc"} // Can extend if needed
+	
+	for i := 0; i < numGroups && i < len(groupLabels); i++ {
+		groups = append(groups, groupLabels[i])
+	}
+	
+	// Get subject name from the offering's subject
+	subjectName := ""
+	// Since Subject is loaded via Preload, we need to check if it has data
+	if offering.Subject.ID != 0 {
+		subjectName = offering.Subject.Name
+	}
+	
+	logrus.Infof("  ✓ LAB DIVISION COMPLETE: %s will be divided into %d groups: %v",
+		subjectName, numGroups, groups)
+	logrus.Infof("  (Total Students: %d, Room Capacity: %d, Groups: %v)",
+		totalStudents, roomCapacity, groups)
+	
+	return groups
 }
 
 // getTheoryPatterns returns the pattern of slot lengths for theory subjects
@@ -508,10 +637,12 @@ func (s *routineGenerationService) canPlaceBlock(block models.ClassBlock, day in
 		return false
 	}
 	
-	// Check room availability
-	roomAvailable, _ := s.scheduleRepo.CheckRoomAvailability(block.RoomID, sessionID, day, slotNumbers)
-	if !roomAvailable {
-		return false
+	// Check room availability (only if room is required)
+	if block.RoomID > 0 {
+		roomAvailable, _ := s.scheduleRepo.CheckRoomAvailability(block.RoomID, sessionID, day, slotNumbers)
+		if !roomAvailable {
+			return false
+		}
 	}
 	
 	// Check student group availability (same semester offering)
@@ -608,6 +739,7 @@ func (s *routineGenerationService) convertTimetableToEntries(timetable models.Ti
 						SlotStart:        slot,
 						SlotLength:       slotInfo.Block.DurationSlots,
 						IsLab:            slotInfo.Block.IsLab,
+						LabGroup:         slotInfo.Block.LabGroup,
 					}
 					
 					if err := s.scheduleRepo.CreateScheduleBlock(&scheduleBlock); err == nil {
@@ -639,6 +771,7 @@ func (s *routineGenerationService) convertTimetableToEntries(timetable models.Ti
 					DayOfWeek:            day,
 					SlotNumber:           slot,
 					BlockID:              &blockID,
+					LabGroup:             slotInfo.Block.LabGroup,
 				}
 				entries = append(entries, entry)
 			}
@@ -682,6 +815,36 @@ func (s *routineGenerationService) CancelScheduleRun(scheduleRunID uint) error {
 	// Update status to cancelled
 	run.Status = "CANCELLED"
 	return s.scheduleRepo.UpdateScheduleRun(run)
+}
+
+func (s *routineGenerationService) DeleteScheduleRun(scheduleRunID uint) error {
+	// Get the schedule run
+	run, err := s.scheduleRepo.GetScheduleRunByID(scheduleRunID)
+	if err != nil {
+		return fmt.Errorf("failed to get schedule run: %w", err)
+	}
+	
+	// Only allow deletion of DRAFT, CANCELLED, or FAILED schedules
+	if run.Status == "COMMITTED" {
+		return errors.New("cannot delete committed schedule runs")
+	}
+	
+	// Delete schedule entries first
+	if err := s.scheduleRepo.DeleteScheduleEntriesByRun(scheduleRunID); err != nil {
+		return fmt.Errorf("failed to delete schedule entries: %w", err)
+	}
+	
+	// Delete schedule blocks
+	if err := s.scheduleRepo.DeleteScheduleBlocksByRun(scheduleRunID); err != nil {
+		return fmt.Errorf("failed to delete schedule blocks: %w", err)
+	}
+	
+	// Delete the schedule run itself
+	if err := s.scheduleRepo.DeleteScheduleRun(scheduleRunID); err != nil {
+		return fmt.Errorf("failed to delete schedule run: %w", err)
+	}
+	
+	return nil
 }
 
 func (s *routineGenerationService) GetScheduleRun(scheduleRunID uint) (*models.ScheduleRun, error) {

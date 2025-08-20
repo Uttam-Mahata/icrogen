@@ -22,6 +22,8 @@ type ScheduleRepository interface {
 	GetCommittedScheduleEntries(sessionID uint) ([]models.ScheduleEntry, error)
 	
 	DeleteScheduleEntriesByRun(scheduleRunID uint) error
+	DeleteScheduleBlocksByRun(scheduleRunID uint) error
+	DeleteScheduleRun(scheduleRunID uint) error
 	CommitScheduleRun(scheduleRunID uint) error
 	
 	CheckTeacherAvailability(teacherID uint, sessionID uint, dayOfWeek int, slotNumbers []int) (bool, error)
@@ -115,6 +117,14 @@ func (r *scheduleRepository) GetCommittedScheduleEntries(sessionID uint) ([]mode
 
 func (r *scheduleRepository) DeleteScheduleEntriesByRun(scheduleRunID uint) error {
 	return r.db.Where("schedule_run_id = ?", scheduleRunID).Delete(&models.ScheduleEntry{}).Error
+}
+
+func (r *scheduleRepository) DeleteScheduleBlocksByRun(scheduleRunID uint) error {
+	return r.db.Where("schedule_run_id = ?", scheduleRunID).Delete(&models.ScheduleBlock{}).Error
+}
+
+func (r *scheduleRepository) DeleteScheduleRun(scheduleRunID uint) error {
+	return r.db.Delete(&models.ScheduleRun{}, scheduleRunID).Error
 }
 
 func (r *scheduleRepository) CommitScheduleRun(scheduleRunID uint) error {

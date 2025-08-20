@@ -75,8 +75,8 @@ class ApiClient {
     throw new Error(responseData.error || 'Failed to fetch data');
   }
 
-  async post<T = any>(url: string, data?: any): Promise<T> {
-    const response = await this.client.post<APIResponse<T>>(url, data);
+  async post<T = any>(url: string, data?: any, config?: any): Promise<T> {
+    const response = await this.client.post<APIResponse<T>>(url, data, config);
     const responseData = response.data as APIResponse<T>;
     if (responseData.success && responseData.data !== undefined) {
       return responseData.data;

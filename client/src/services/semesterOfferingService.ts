@@ -7,10 +7,12 @@ export interface CreateSemesterOfferingRequest {
   department_id: number;
   session_id: number;
   semester_number: number;
+  total_students?: number;
 }
 
 export interface UpdateSemesterOfferingRequest {
-  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+  status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+  total_students?: number;
 }
 
 export interface CreateCourseOfferingRequest {
@@ -18,6 +20,7 @@ export interface CreateCourseOfferingRequest {
   weekly_required_slots: number;
   required_pattern?: string;
   preferred_room_id?: number | null;
+  requires_room?: boolean;
   teacher_ids?: number[];
   notes?: string;
 }
