@@ -118,11 +118,11 @@ type CreateSemesterOfferingRequest struct {
 }
 
 type CreateCourseOfferingRequest struct {
-	SemesterOfferingID  uint   `json:"semester_offering_id" binding:"required"`
 	SubjectID           uint   `json:"subject_id" binding:"required"`
 	WeeklyRequiredSlots int    `json:"weekly_required_slots" binding:"required,min=1"`
 	RequiredPattern     string `json:"required_pattern"`
 	PreferredRoomID     *uint  `json:"preferred_room_id"`
+	TeacherIDs          []uint `json:"teacher_ids"`
 	Notes               string `json:"notes"`
 }
 

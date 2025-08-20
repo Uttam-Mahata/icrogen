@@ -72,6 +72,7 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
     weekly_required_slots: 3,
     required_pattern: '',
     preferred_room_id: null as number | null,
+    teacher_ids: [] as number[],
     notes: '',
   });
 
@@ -125,6 +126,7 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
         weekly_required_slots: courseFormData.weekly_required_slots,
         required_pattern: courseFormData.required_pattern || undefined,
         preferred_room_id: courseFormData.preferred_room_id,
+        teacher_ids: courseFormData.teacher_ids,
         notes: courseFormData.notes || undefined,
       };
       await semesterOfferingService.addCourseOffering(semesterOffering.id, data);
@@ -135,6 +137,7 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
         weekly_required_slots: 3,
         required_pattern: '',
         preferred_room_id: null,
+        teacher_ids: [],
         notes: '',
       });
     } catch (err) {
@@ -320,7 +323,7 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
                             {course.room_assignments?.map(ra => (
                               <Chip
                                 key={ra.room_id}
-                                label={`${ra.room?.name} (${ra.room?.room_type})`}
+                                label={`${ra.room?.name} (${ra.room?.type})`}
                                 size="small"
                                 icon={<Room fontSize="small" />}
                                 onDelete={() => handleRemoveRoom(course.id, ra.room_id)}
@@ -412,10 +415,37 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
                     onChange={(e) => setCourseFormData(prev => ({ ...prev, preferred_room_id: e.target.value ? Number(e.target.value) : null }))}
                     label="Preferred Room"
                   >
-                    <MenuItem value="">No Preference</MenuItem>
+                    <MenuItem value="">No Preference (Auto-assign)</MenuItem>
                     {rooms.map(room => (
                       <MenuItem key={room.id} value={room.id}>
-                        {room.name} ({room.room_type}, Capacity: {room.capacity})
+                        {room.name} ({room.type}, Capacity: {room.capacity})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Assign Teachers</InputLabel>
+                  <Select
+                    multiple
+                    value={courseFormData.teacher_ids}
+                    onChange={(e) => setCourseFormData(prev => ({ ...prev, teacher_ids: e.target.value as number[] }))}
+                    label="Assign Teachers"
+                    renderValue={(selected) => (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {(selected as number[]).map((value) => {
+                          const teacher = teachers.find(t => t.id === value);
+                          return teacher ? (
+                            <Chip key={value} label={teacher.name} size="small" />
+                          ) : null;
+                        })}
+                      </Box>
+                    )}
+                  >
+                    {teachers.map(teacher => (
+                      <MenuItem key={teacher.id} value={teacher.id}>
+                        {teacher.name} ({teacher.initials})
                       </MenuItem>
                     ))}
                   </Select>
@@ -515,7 +545,7 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
                       <MenuItem value="">Select Room</MenuItem>
                       {rooms.map(room => (
                         <MenuItem key={room.id} value={room.id}>
-                          {room.name} ({room.room_type})
+                          {room.name} ({room.type})
                         </MenuItem>
                       ))}
                     </Select>
@@ -537,7 +567,7 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
                   {selectedCourse.room_assignments?.map(ra => (
                     <ListItem key={ra.room_id}>
                       <ListItemText
-                        primary={`${ra.room?.name} (${ra.room?.room_type})`}
+                        primary={`${ra.room?.name} (${ra.room?.type})`}
                         secondary={`Priority: ${ra.priority}, Capacity: ${ra.room?.capacity}`}
                       />
                       <ListItemSecondaryAction>

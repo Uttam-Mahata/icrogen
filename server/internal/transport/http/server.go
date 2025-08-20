@@ -145,6 +145,8 @@ func (s *Server) setupRoutes() {
 			sessions.GET("/:id", sessionHandler.GetSession)
 			sessions.PUT("/:id", sessionHandler.UpdateSession)
 			sessions.DELETE("/:id", sessionHandler.DeleteSession)
+			sessions.DELETE("/:id/hard", sessionHandler.HardDeleteSession)
+			sessions.POST("/:id/restore", sessionHandler.RestoreSession)
 			sessions.GET("/year", sessionHandler.GetSessionsByYear)
 		}
 

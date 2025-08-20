@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"icrogen/internal/models"
 	"icrogen/internal/repository"
@@ -9,6 +10,7 @@ import (
 // CourseOfferingService interface for course offering business logic
 type CourseOfferingService interface {
 	CreateCourseOffering(offering *models.CourseOffering) error
+	CreateCourseOfferingWithTeachers(offering *models.CourseOffering, teacherIDs []uint) error
 	GetCourseOfferingByID(id uint) (*models.CourseOffering, error)
 	GetCourseOfferingsBySemesterOffering(semesterOfferingID uint) ([]models.CourseOffering, error)
 	UpdateCourseOffering(offering *models.CourseOffering) error
@@ -67,10 +69,28 @@ func (s *courseOfferingService) CreateCourseOffering(offering *models.CourseOffe
 		offering.IsLab = true
 		// Labs typically need 3-hour consecutive slots
 		if offering.RequiredPattern == "" {
-			offering.RequiredPattern = "3-consecutive"
+			offering.RequiredPattern = `["3"]`
 		}
 	} else {
 		offering.IsLab = false
+		// For theory classes, set default pattern if not provided
+		if offering.RequiredPattern == "" {
+			offering.RequiredPattern = `["1"]`
+		}
+	}
+	
+	// Validate and format RequiredPattern as JSON
+	if offering.RequiredPattern != "" {
+		// Check if it's already valid JSON
+		var pattern []string
+		err := json.Unmarshal([]byte(offering.RequiredPattern), &pattern)
+		if err != nil {
+			// If not valid JSON, try to convert it to JSON array
+			// Support formats like "2+2" or "3"
+			patternArray := []string{offering.RequiredPattern}
+			jsonBytes, _ := json.Marshal(patternArray)
+			offering.RequiredPattern = string(jsonBytes)
+		}
 	}
 
 	// Validate preferred room if provided
@@ -82,6 +102,83 @@ func (s *courseOfferingService) CreateCourseOffering(offering *models.CourseOffe
 	}
 
 	return s.courseOfferingRepo.Create(offering)
+}
+
+func (s *courseOfferingService) CreateCourseOfferingWithTeachers(offering *models.CourseOffering, teacherIDs []uint) error {
+	// First validate and create the course offering
+	if err := s.CreateCourseOffering(offering); err != nil {
+		return err
+	}
+
+	// Smart room allocation - if no preferred room is set, try to find an available room
+	if offering.PreferredRoomID == nil {
+		// Get subject to determine room type needed
+		subject, _ := s.subjectRepo.GetByID(offering.SubjectID)
+		
+		// Determine required room type
+		roomType := "THEORY"
+		if subject.SubjectType.IsLab {
+			roomType = "LAB"
+		}
+		
+		// Get all available rooms of the required type
+		rooms, err := s.roomRepo.GetByType(roomType)
+		if err == nil && len(rooms) > 0 {
+			// First try to find a room without department (free room)
+			for _, room := range rooms {
+				if room.DepartmentID == nil && room.IsActive {
+					// Assign this free room
+					roomAssignment := &models.RoomAssignment{
+						CourseOfferingID: offering.ID,
+						RoomID:          room.ID,
+						Priority:        1,
+					}
+					s.courseOfferingRepo.AssignRoom(roomAssignment)
+					break
+				}
+			}
+			
+			// If no free room found, use the first available room of correct type
+			if offering.PreferredRoomID == nil {
+				for _, room := range rooms {
+					if room.IsActive {
+						roomAssignment := &models.RoomAssignment{
+							CourseOfferingID: offering.ID,
+							RoomID:          room.ID,
+							Priority:        2, // Lower priority for department-owned rooms
+						}
+						s.courseOfferingRepo.AssignRoom(roomAssignment)
+						break
+					}
+				}
+			}
+		}
+	} else {
+		// Use the preferred room
+		roomAssignment := &models.RoomAssignment{
+			CourseOfferingID: offering.ID,
+			RoomID:          *offering.PreferredRoomID,
+			Priority:        1,
+		}
+		s.courseOfferingRepo.AssignRoom(roomAssignment)
+	}
+
+	// Assign teachers if provided
+	for _, teacherID := range teacherIDs {
+		// Validate teacher exists
+		if _, err := s.teacherRepo.GetByID(teacherID); err != nil {
+			continue // Skip invalid teacher IDs
+		}
+		
+		assignment := &models.TeacherAssignment{
+			CourseOfferingID: offering.ID,
+			TeacherID:       teacherID,
+			Weight:          1,
+		}
+		s.courseOfferingRepo.AssignTeacher(assignment)
+	}
+
+	return nil
 }
 
 func (s *courseOfferingService) GetCourseOfferingByID(id uint) (*models.CourseOffering, error) {

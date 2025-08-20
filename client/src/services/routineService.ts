@@ -1,6 +1,6 @@
 import { apiClient } from './apiClient';
 import { API_ENDPOINTS } from '../config/api';
-import { type ScheduleRun, type ScheduleSlot } from '../types/models';
+import { type ScheduleRun, type ScheduleEntry, type ScheduleBlock } from '../types/models';
 
 export interface GenerateRoutineRequest {
   semester_offering_id: number;
@@ -39,60 +39,86 @@ class RoutineService {
     return apiClient.post(API_ENDPOINTS.routines.cancel(id), {});
   }
 
-  async getScheduleSlots(scheduleRunId: number): Promise<ScheduleSlot[]> {
-    return apiClient.get<ScheduleSlot[]>(`/routines/${scheduleRunId}/slots`);
+  async getScheduleEntries(scheduleRunId: number): Promise<ScheduleEntry[]> {
+    const run = await this.getScheduleRun(scheduleRunId);
+    return run.schedule_entries || [];
   }
 
   // Helper method to format time slot
   formatTimeSlot(dayOfWeek: number, slotNumber: number): string {
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const days = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const times = [
-      '9:00-10:00',
-      '10:00-11:00',
-      '11:00-12:00',
-      '12:00-1:00',
-      '2:00-3:00',
-      '3:00-4:00',
-      '4:00-5:00',
-      '5:00-6:00'
+      '',
+      '09:00-09:55',
+      '09:55-10:50',
+      '10:50-11:45',
+      '11:45-12:40',
+      '13:50-14:45',
+      '14:45-15:40',
+      '15:40-16:35',
+      '16:35-17:30'
     ];
     
-    return `${days[dayOfWeek - 1]} ${times[slotNumber - 1]}`;
+    return `${days[dayOfWeek] || ''} ${times[slotNumber] || ''}`;
   }
 
-  // Helper method to group slots by day
-  groupSlotsByDay(slots: ScheduleSlot[]): Map<number, ScheduleSlot[]> {
-    const grouped = new Map<number, ScheduleSlot[]>();
+  // Helper method to group entries by day
+  groupEntriesByDay(entries: ScheduleEntry[]): Map<number, ScheduleEntry[]> {
+    const grouped = new Map<number, ScheduleEntry[]>();
     
-    for (const slot of slots) {
-      if (!grouped.has(slot.day_of_week)) {
-        grouped.set(slot.day_of_week, []);
+    for (const entry of entries) {
+      if (!grouped.has(entry.day_of_week)) {
+        grouped.set(entry.day_of_week, []);
       }
-      grouped.get(slot.day_of_week)?.push(slot);
+      grouped.get(entry.day_of_week)?.push(entry);
     }
     
-    // Sort slots within each day by slot number
-    grouped.forEach((daySlots) => {
-      daySlots.sort((a, b) => a.slot_number - b.slot_number);
+    // Sort entries within each day by slot number
+    grouped.forEach((dayEntries) => {
+      dayEntries.sort((a, b) => a.slot_number - b.slot_number);
     });
     
     return grouped;
   }
 
-  // Helper method to group slots by room
-  groupSlotsByRoom(slots: ScheduleSlot[]): Map<number, ScheduleSlot[]> {
-    const grouped = new Map<number, ScheduleSlot[]>();
+  // Helper method to group entries by room
+  groupEntriesByRoom(entries: ScheduleEntry[]): Map<number, ScheduleEntry[]> {
+    const grouped = new Map<number, ScheduleEntry[]>();
     
-    for (const slot of slots) {
-      if (!grouped.has(slot.room_id)) {
-        grouped.set(slot.room_id, []);
+    for (const entry of entries) {
+      if (!grouped.has(entry.room_id)) {
+        grouped.set(entry.room_id, []);
       }
-      grouped.get(slot.room_id)?.push(slot);
+      grouped.get(entry.room_id)?.push(entry);
     }
     
-    // Sort slots within each room by day and slot
-    grouped.forEach((roomSlots) => {
-      roomSlots.sort((a, b) => {
+    // Sort entries within each room by day and slot
+    grouped.forEach((roomEntries) => {
+      roomEntries.sort((a, b) => {
+        if (a.day_of_week !== b.day_of_week) {
+          return a.day_of_week - b.day_of_week;
+        }
+        return a.slot_number - b.slot_number;
+      });
+    });
+    
+    return grouped;
+  }
+
+  // Helper method to group entries by teacher
+  groupEntriesByTeacher(entries: ScheduleEntry[]): Map<number, ScheduleEntry[]> {
+    const grouped = new Map<number, ScheduleEntry[]>();
+    
+    for (const entry of entries) {
+      if (!grouped.has(entry.teacher_id)) {
+        grouped.set(entry.teacher_id, []);
+      }
+      grouped.get(entry.teacher_id)?.push(entry);
+    }
+    
+    // Sort entries within each teacher by day and slot
+    grouped.forEach((teacherEntries) => {
+      teacherEntries.sort((a, b) => {
         if (a.day_of_week !== b.day_of_week) {
           return a.day_of_week - b.day_of_week;
         }

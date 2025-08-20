@@ -18,6 +18,7 @@ export interface CreateCourseOfferingRequest {
   weekly_required_slots: number;
   required_pattern?: string;
   preferred_room_id?: number | null;
+  teacher_ids?: number[];
   notes?: string;
 }
 
