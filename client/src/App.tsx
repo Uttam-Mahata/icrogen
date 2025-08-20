@@ -1,35 +1,40 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { theme } from './theme';
+import MainLayout from './components/Layout/MainLayout';
+import Dashboard from './pages/Dashboard';
+import ProgrammeList from './pages/Programmes/ProgrammeList';
+import DepartmentList from './pages/Departments/DepartmentList';
+import TeacherList from './pages/Teachers/TeacherList';
+import SubjectList from './pages/Subjects/SubjectList';
+import RoomList from './pages/Rooms/RoomList';
+import SessionList from './pages/Sessions/SessionList';
+import SemesterOfferingList from './pages/SemesterOfferings/SemesterOfferingList';
+import RoutineGenerator from './pages/Routines/RoutineGenerator';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Router>
+        <Routes>
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="programmes" element={<ProgrammeList />} />
+            <Route path="departments" element={<DepartmentList />} />
+            <Route path="teachers" element={<TeacherList />} />
+            <Route path="subjects" element={<SubjectList />} />
+            <Route path="rooms" element={<RoomList />} />
+            <Route path="sessions" element={<SessionList />} />
+            <Route path="semester-offerings" element={<SemesterOfferingList />} />
+            <Route path="routines" element={<RoutineGenerator />} />
+          </Route>
+        </Routes>
+      </Router>
+    </ThemeProvider>
+  );
 }
 
-export default App
+export default App;

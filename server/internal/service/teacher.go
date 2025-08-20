@@ -58,11 +58,6 @@ func (s *teacherService) CreateTeacher(teacher *models.Teacher) error {
 		return errors.New("invalid department ID")
 	}
 	
-	// Set default values
-	if teacher.MaxWeeklyLoadSlots == 0 {
-		teacher.MaxWeeklyLoadSlots = 20 // Default maximum weekly load
-	}
-	
 	return s.teacherRepo.Create(teacher)
 }
 
