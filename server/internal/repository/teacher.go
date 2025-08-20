@@ -58,7 +58,24 @@ func (r *teacherRepository) GetActive() ([]models.Teacher, error) {
 }
 
 func (r *teacherRepository) Update(teacher *models.Teacher) error {
-	return r.db.Save(teacher).Error
+	// Only update specific fields to avoid datetime issues
+	updates := map[string]interface{}{
+		"name":          teacher.Name,
+		"email":         teacher.Email,
+		"department_id": teacher.DepartmentID,
+		"is_active":     teacher.IsActive,
+	}
+	
+	// Handle nullable initials
+	if teacher.Initials != nil {
+		updates["initials"] = teacher.Initials
+	} else {
+		updates["initials"] = nil
+	}
+	
+	return r.db.Model(&models.Teacher{}).
+		Where("id = ?", teacher.ID).
+		Updates(updates).Error
 }
 
 func (r *teacherRepository) Delete(id uint) error {

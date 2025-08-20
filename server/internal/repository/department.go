@@ -51,7 +51,15 @@ func (r *departmentRepository) GetAll() ([]models.Department, error) {
 }
 
 func (r *departmentRepository) Update(department *models.Department) error {
-	return r.db.Save(department).Error
+	// Only update specific fields to avoid datetime issues
+	return r.db.Model(&models.Department{}).
+		Where("id = ?", department.ID).
+		Updates(map[string]interface{}{
+			"name":         department.Name,
+			"strength":     department.Strength,
+			"programme_id": department.ProgrammeID,
+			"is_active":    department.IsActive,
+		}).Error
 }
 
 func (r *departmentRepository) Delete(id uint) error {

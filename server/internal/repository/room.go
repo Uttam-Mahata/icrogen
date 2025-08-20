@@ -59,7 +59,17 @@ func (r *roomRepository) GetByDepartmentID(departmentID uint) ([]models.Room, er
 }
 
 func (r *roomRepository) Update(room *models.Room) error {
-	return r.db.Save(room).Error
+	// Only update specific fields to avoid datetime issues
+	return r.db.Model(&models.Room{}).
+		Where("id = ?", room.ID).
+		Updates(map[string]interface{}{
+			"name":          room.Name,
+			"room_number":   room.RoomNumber,
+			"capacity":      room.Capacity,
+			"type":          room.Type,
+			"department_id": room.DepartmentID,
+			"is_active":     room.IsActive,
+		}).Error
 }
 
 func (r *roomRepository) Delete(id uint) error {

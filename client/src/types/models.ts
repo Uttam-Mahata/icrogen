@@ -30,7 +30,7 @@ export interface Department {
 export interface Teacher {
   id: number;
   name: string;
-  initials: string;
+  initials?: string | null;
   email: string;
   department_id: number;
   is_active: boolean;

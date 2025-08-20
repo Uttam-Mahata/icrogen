@@ -69,7 +69,19 @@ func (r *subjectRepository) GetAll() ([]models.Subject, error) {
 }
 
 func (r *subjectRepository) Update(subject *models.Subject) error {
-	return r.db.Save(subject).Error
+	// Only update specific fields to avoid datetime issues
+	return r.db.Model(&models.Subject{}).
+		Where("id = ?", subject.ID).
+		Updates(map[string]interface{}{
+			"code":                subject.Code,
+			"name":                subject.Name,
+			"credit":              subject.Credit,
+			"class_load_per_week": subject.ClassLoadPerWeek,
+			"programme_id":        subject.ProgrammeID,
+			"department_id":       subject.DepartmentID,
+			"subject_type_id":     subject.SubjectTypeID,
+			"is_active":           subject.IsActive,
+		}).Error
 }
 
 func (r *subjectRepository) Delete(id uint) error {

@@ -196,19 +196,30 @@ func (h *SubjectHandler) UpdateSubject(c *gin.Context) {
 		return
 	}
 
-	subject := &models.Subject{
-		ID:               uint(id),
-		Name:             req.Name,
-		Code:             req.Code,
-		Credit:           req.Credit,
-		ClassLoadPerWeek: req.ClassLoadPerWeek,
-		ProgrammeID:      req.ProgrammeID,
-		DepartmentID:     req.DepartmentID,
-		SubjectTypeID:    req.SubjectTypeID,
-		IsActive:         req.IsActive,
+	// Fetch existing subject to preserve ProgrammeID and DepartmentID
+	existing, err := h.subjectService.GetSubjectByID(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, dto.ErrorResponse{
+			Success: false,
+			Error:   "Subject not found",
+			Code:    http.StatusNotFound,
+		})
+		return
 	}
 
-	if err := h.subjectService.UpdateSubject(subject); err != nil {
+	// Update only the allowed fields
+	existing.Name = req.Name
+	existing.Code = req.Code
+	existing.Credit = req.Credit
+	existing.ClassLoadPerWeek = req.ClassLoadPerWeek
+	existing.IsActive = req.IsActive
+	
+	// Only update SubjectTypeID if provided
+	if req.SubjectTypeID != 0 {
+		existing.SubjectTypeID = req.SubjectTypeID
+	}
+
+	if err := h.subjectService.UpdateSubject(existing); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Success: false,
 			Error:   err.Error(),
@@ -219,7 +230,7 @@ func (h *SubjectHandler) UpdateSubject(c *gin.Context) {
 
 	c.JSON(http.StatusOK, dto.SuccessResponse{
 		Success: true,
-		Data:    subject,
+		Data:    existing,
 	})
 }
 

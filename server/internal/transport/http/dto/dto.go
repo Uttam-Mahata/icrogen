@@ -70,9 +70,7 @@ type UpdateSubjectRequest struct {
 	Code             string `json:"code" binding:"required"`
 	Credit           int    `json:"credit" binding:"required,min=1"`
 	ClassLoadPerWeek int    `json:"class_load_per_week" binding:"required,min=1"`
-	ProgrammeID      uint   `json:"programme_id" binding:"required"`
-	DepartmentID     uint   `json:"department_id" binding:"required"`
-	SubjectTypeID    uint   `json:"subject_type_id" binding:"required"`
+	SubjectTypeID    uint   `json:"subject_type_id"`
 	IsActive         bool   `json:"is_active"`
 }
 
