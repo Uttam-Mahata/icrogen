@@ -37,6 +37,11 @@ func (h *TeacherHandler) CreateTeacher(c *gin.Context) {
 		DepartmentID: req.DepartmentID,
 		IsActive:     true,
 	}
+	
+	// Set initials only if not empty
+	if req.Initials != "" {
+		teacher.Initials = &req.Initials
+	}
 
 	if err := h.teacherService.CreateTeacher(teacher); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
@@ -158,6 +163,11 @@ func (h *TeacherHandler) UpdateTeacher(c *gin.Context) {
 		Email:        req.Email,
 		DepartmentID: req.DepartmentID,
 		IsActive:     req.IsActive,
+	}
+	
+	// Set initials only if not empty
+	if req.Initials != "" {
+		teacher.Initials = &req.Initials
 	}
 
 	if err := h.teacherService.UpdateTeacher(teacher); err != nil {
