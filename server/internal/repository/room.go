@@ -79,29 +79,29 @@ func (r *roomRepository) Delete(id uint) error {
 func (r *roomRepository) CheckAvailability(roomID uint, sessionID uint, dayOfWeek int, slotNumber int) (bool, error) {
 	var count int64
 	err := r.db.Model(&models.ScheduleEntry{}).
-		Where("room_id = ? AND session_id = ? AND day_of_week = ? AND slot_number = ?", 
+		Where("room_id = ? AND session_id = ? AND day_of_week = ? AND slot_number = ?",
 			roomID, sessionID, dayOfWeek, slotNumber).
 		Count(&count).Error
-	
+
 	if err != nil {
 		return false, err
 	}
-	
+
 	return count == 0, nil
 }
 
 func (r *roomRepository) GetAvailableRooms(sessionID uint, dayOfWeek int, slotNumber int, roomType string) ([]models.Room, error) {
 	var rooms []models.Room
-	
+
 	subQuery := r.db.Model(&models.ScheduleEntry{}).
 		Select("room_id").
 		Where("session_id = ? AND day_of_week = ? AND slot_number = ?", sessionID, dayOfWeek, slotNumber)
-	
+
 	query := r.db.Where("is_active = ?", true)
 	if roomType != "" {
 		query = query.Where("type = ?", roomType)
 	}
-	
+
 	err := query.Where("id NOT IN (?)", subQuery).Find(&rooms).Error
 	return rooms, err
 }

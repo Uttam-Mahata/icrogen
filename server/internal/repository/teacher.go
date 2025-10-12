@@ -65,14 +65,14 @@ func (r *teacherRepository) Update(teacher *models.Teacher) error {
 		"department_id": teacher.DepartmentID,
 		"is_active":     teacher.IsActive,
 	}
-	
+
 	// Handle nullable initials
 	if teacher.Initials != nil {
 		updates["initials"] = teacher.Initials
 	} else {
 		updates["initials"] = nil
 	}
-	
+
 	return r.db.Model(&models.Teacher{}).
 		Where("id = ?", teacher.ID).
 		Updates(updates).Error
@@ -85,13 +85,13 @@ func (r *teacherRepository) Delete(id uint) error {
 func (r *teacherRepository) CheckAvailability(teacherID uint, sessionID uint, dayOfWeek int, slotNumber int) (bool, error) {
 	var count int64
 	err := r.db.Model(&models.ScheduleEntry{}).
-		Where("teacher_id = ? AND session_id = ? AND day_of_week = ? AND slot_number = ?", 
+		Where("teacher_id = ? AND session_id = ? AND day_of_week = ? AND slot_number = ?",
 			teacherID, sessionID, dayOfWeek, slotNumber).
 		Count(&count).Error
-	
+
 	if err != nil {
 		return false, err
 	}
-	
+
 	return count == 0, nil
 }

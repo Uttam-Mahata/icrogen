@@ -37,7 +37,7 @@ func (h *TeacherHandler) CreateTeacher(c *gin.Context) {
 		DepartmentID: req.DepartmentID,
 		IsActive:     true,
 	}
-	
+
 	// Set initials only if not empty
 	if req.Initials != "" {
 		teacher.Initials = &req.Initials
@@ -164,7 +164,7 @@ func (h *TeacherHandler) UpdateTeacher(c *gin.Context) {
 		DepartmentID: req.DepartmentID,
 		IsActive:     req.IsActive,
 	}
-	
+
 	// Set initials only if not empty
 	if req.Initials != "" {
 		teacher.Initials = &req.Initials

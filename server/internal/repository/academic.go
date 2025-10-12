@@ -159,7 +159,7 @@ func (r *semesterOfferingRepository) GetBySession(sessionID uint) ([]models.Seme
 
 func (r *semesterOfferingRepository) GetByProgrammeDepartmentSession(programmeID, departmentID, sessionID uint) ([]models.SemesterOffering, error) {
 	var offerings []models.SemesterOffering
-	err := r.db.Where("programme_id = ? AND department_id = ? AND session_id = ?", 
+	err := r.db.Where("programme_id = ? AND department_id = ? AND session_id = ?",
 		programmeID, departmentID, sessionID).Find(&offerings).Error
 	return offerings, err
 }
