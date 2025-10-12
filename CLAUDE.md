@@ -23,9 +23,8 @@ Navigate to `server/` directory for all backend commands:
 cd server && docker-compose up -d
 
 # Run backend locally (requires MySQL running)
-make run                    # Without migrations
-make run-migrate            # With migrations
-make run-with-env-migrate   # With migrations via env var
+make run                    # Start server
+make migrate                # Run database migrations (separate command)
 
 # Build and test
 make build          # Build to bin/icrogen
@@ -72,6 +71,7 @@ The Go backend follows a layered service-oriented architecture:
 server/
 ├── cmd/
 │   ├── main.go              # Application entry point
+│   ├── migrate/             # Database migration command
 │   └── seed/                # Database seeding utilities
 ├── internal/
 │   ├── config/              # Configuration management
@@ -237,11 +237,19 @@ When modifying the scheduling algorithm:
 
 ### Database Migrations
 
-Migrations run automatically when:
-- Using `make run-migrate` or `make run-with-env-migrate`
-- Starting with Docker Compose (default behavior)
+**IMPORTANT**: Migrations are now separate from the main server to improve startup performance.
 
-GORM AutoMigrate handles schema evolution in `internal/database/connection.go`.
+**Running migrations**:
+- Run `make migrate` to execute database migrations manually
+- Migrations are handled by GORM AutoMigrate in `internal/database/connection.go`
+- The migration command is located at `cmd/migrate/main.go`
+
+**When to run migrations**:
+- After pulling schema changes from git
+- Before first run in a new environment
+- When adding new models or changing existing ones
+
+**Note**: The main server (`make run`) no longer runs migrations automatically. This significantly reduces startup time and prevents unnecessary schema checks on every restart.
 
 ### Adding New Entities
 
@@ -308,7 +316,6 @@ Backend configuration is managed via `.env` file in `server/`:
 PORT=8080
 DATABASE_URL=user:password@tcp(host:port)/dbname?charset=utf8mb4&parseTime=True&loc=Local
 LOG_LEVEL=info
-RUN_MIGRATIONS=true
 ```
 
 See `internal/config/config.go` for all configuration options.
