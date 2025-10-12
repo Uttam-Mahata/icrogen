@@ -69,13 +69,21 @@ type TimeSlot struct {
 }
 
 func (s *routineGenerationService) GenerateRoutine(semesterOfferingID uint) (*models.ScheduleRun, error) {
-	logrus.Info("Starting routine generation for semester offering ID: ", semesterOfferingID)
+	logrus.WithFields(logrus.Fields{
+		"semester_offering_id": semesterOfferingID,
+	}).Info("Starting routine generation")
 	
 	// Get semester offering with all course offerings
 	semesterOffering, err := s.semesterOfferingRepo.GetWithCourseOfferings(semesterOfferingID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get semester offering: %w", err)
 	}
+	
+	logrus.WithFields(logrus.Fields{
+		"semester_offering_id": semesterOfferingID,
+		"course_offerings_count": len(semesterOffering.CourseOfferings),
+		"session_id": semesterOffering.SessionID,
+	}).Info("Loaded semester offering data")
 	
 	// Create a new schedule run
 	scheduleRun := &models.ScheduleRun{
@@ -96,6 +104,12 @@ func (s *routineGenerationService) GenerateRoutine(semesterOfferingID uint) (*mo
 		return nil, fmt.Errorf("failed to generate class blocks: %w", err)
 	}
 	
+	logrus.WithFields(logrus.Fields{
+		"total_blocks": len(classBlocks),
+		"lab_blocks": countLabBlocks(classBlocks),
+		"theory_blocks": len(classBlocks) - countLabBlocks(classBlocks),
+	}).Info("Generated class blocks from course offerings")
+	
 	// Initialize timetable
 	timetable := s.initializeTimetable()
 	
@@ -105,11 +119,23 @@ func (s *routineGenerationService) GenerateRoutine(semesterOfferingID uint) (*mo
 		return nil, fmt.Errorf("failed to get existing schedule entries: %w", err)
 	}
 	
+	logrus.WithFields(logrus.Fields{
+		"existing_committed_entries": len(existingEntries),
+	}).Info("Loaded existing committed schedules")
+	
 	// Mark existing committed slots as occupied
 	s.markExistingSlots(timetable, existingEntries)
 	
 	// Run the backtracking algorithm
+	logrus.Info("Starting backtracking algorithm")
 	report := s.runBacktrackingAlgorithm(classBlocks, timetable, semesterOffering.SessionID)
+	
+	logrus.WithFields(logrus.Fields{
+		"total_blocks": report.TotalBlocks,
+		"placed_blocks": report.PlacedBlocks,
+		"unplaced_blocks": len(report.UnplacedBlocks),
+		"success_rate": fmt.Sprintf("%.1f%%", float64(report.PlacedBlocks)/float64(report.TotalBlocks)*100),
+	}).Info("Backtracking algorithm completed")
 	
 	// Convert timetable to schedule entries
 	scheduleEntries := s.convertTimetableToEntries(timetable, scheduleRun.ID, semesterOffering)
@@ -135,9 +161,31 @@ func (s *routineGenerationService) GenerateRoutine(semesterOfferingID uint) (*mo
 		return nil, fmt.Errorf("failed to update schedule run: %w", err)
 	}
 	
-	logrus.Info("Routine generation completed. Placed: ", report.PlacedBlocks, "/", report.TotalBlocks)
+	if report.PlacedBlocks == report.TotalBlocks {
+		logrus.WithFields(logrus.Fields{
+			"schedule_run_id": scheduleRun.ID,
+			"status": "success",
+		}).Info("Routine generation completed successfully - all blocks placed")
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"schedule_run_id": scheduleRun.ID,
+			"status": "partial",
+			"unplaced_count": len(report.UnplacedBlocks),
+		}).Warn("Routine generation completed with unplaced blocks")
+	}
 	
 	return s.scheduleRepo.GetScheduleRunByID(scheduleRun.ID)
+}
+
+// countLabBlocks returns the number of lab blocks in a slice of class blocks
+func countLabBlocks(blocks []models.ClassBlock) int {
+	count := 0
+	for _, block := range blocks {
+		if block.IsLab {
+			count++
+		}
+	}
+	return count
 }
 
 func (s *routineGenerationService) generateClassBlocks(courseOfferings []models.CourseOffering) ([]models.ClassBlock, error) {
@@ -361,6 +409,16 @@ func (s *routineGenerationService) backtrack(blocks []models.ClassBlock, index i
 				validPlacements = append(validPlacements, placement{day, slot, score})
 			}
 		}
+	}
+	
+	// Log if no valid placements found for debugging
+	if len(validPlacements) == 0 {
+		logrus.WithFields(logrus.Fields{
+			"block_index": index,
+			"course_offering_id": currentBlock.CourseOfferingID,
+			"duration_slots": currentBlock.DurationSlots,
+			"is_lab": currentBlock.IsLab,
+		}).Debug("No valid placements found for block")
 	}
 	
 	// Sort by score (higher score = better placement)
