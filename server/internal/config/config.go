@@ -13,7 +13,7 @@ type Config struct {
 
 func Load() (*Config, error) {
 	return &Config{
-		Port:        getEnv("PORT", "8080"),
+		Port:        getEnv("PORT", "8888"),
 		DatabaseURL: getEnv("DATABASE_URL", "root:password@tcp(localhost:3306)/icrogen?charset=utf8mb4&parseTime=True&loc=Local"),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
 		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key-change-in-production"),

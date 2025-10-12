@@ -6,7 +6,6 @@ import (
 
 	"icrogen/internal/config"
 	"icrogen/internal/database"
-	"icrogen/internal/transport/http"
 
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -25,9 +24,11 @@ func main() {
 	}
 
 	// Setup logger
-	setupLogger(cfg.LogLevel)
+	logrus.SetFormatter(&logrus.JSONFormatter{})
+	logrus.SetOutput(os.Stdout)
+	logrus.SetLevel(logrus.InfoLevel)
 
-	// Initialize database
+	// Connect to database
 	logrus.Info("Connecting to database...")
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
@@ -35,25 +36,11 @@ func main() {
 	}
 	logrus.Info("Database connected successfully")
 
-	// Initialize and start HTTP server
-	server := http.NewServer(cfg, db)
-	if err := server.Start(); err != nil {
-		logrus.Fatal("Failed to start server:", err)
+	// Run migrations
+	logrus.Info("Running database migrations...")
+	if err := database.Migrate(db); err != nil {
+		logrus.Fatal("Failed to run migrations:", err)
 	}
-}
 
-func setupLogger(level string) {
-	logrus.SetFormatter(&logrus.JSONFormatter{})
-	logrus.SetOutput(os.Stdout)
-
-	switch level {
-	case "debug":
-		logrus.SetLevel(logrus.DebugLevel)
-	case "warn":
-		logrus.SetLevel(logrus.WarnLevel)
-	case "error":
-		logrus.SetLevel(logrus.ErrorLevel)
-	default:
-		logrus.SetLevel(logrus.InfoLevel)
-	}
+	logrus.Info("Migrations completed successfully!")
 }
