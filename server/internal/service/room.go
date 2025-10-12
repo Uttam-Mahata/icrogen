@@ -48,13 +48,13 @@ func (s *roomService) CreateRoom(room *models.Room) error {
 	if room.Capacity < 0 {
 		return errors.New("capacity cannot be negative")
 	}
-	
+
 	// Validate room type
 	validTypes := map[string]bool{"THEORY": true, "LAB": true, "OTHER": true}
 	if !validTypes[room.Type] {
 		return errors.New("invalid room type")
 	}
-	
+
 	// Validate department if provided
 	if room.DepartmentID != nil {
 		_, err := s.departmentRepo.GetByID(*room.DepartmentID)
@@ -62,7 +62,7 @@ func (s *roomService) CreateRoom(room *models.Room) error {
 			return errors.New("invalid department ID")
 		}
 	}
-	
+
 	return s.roomRepo.Create(room)
 }
 
@@ -96,7 +96,7 @@ func (s *roomService) UpdateRoom(room *models.Room) error {
 	if room.ID == 0 {
 		return errors.New("room ID is required for update")
 	}
-	
+
 	// Validate room data
 	if room.Name == "" {
 		return errors.New("room name is required")
@@ -110,7 +110,7 @@ func (s *roomService) UpdateRoom(room *models.Room) error {
 	if room.Capacity < 0 {
 		return errors.New("capacity cannot be negative")
 	}
-	
+
 	return s.roomRepo.Update(room)
 }
 
@@ -118,10 +118,10 @@ func (s *roomService) DeleteRoom(id uint) error {
 	if id == 0 {
 		return errors.New("invalid room ID")
 	}
-	
+
 	// TODO: Check if room has active assignments
 	// This would require checking RoomAssignment records
-	
+
 	return s.roomRepo.Delete(id)
 }
 
@@ -135,7 +135,7 @@ func (s *roomService) CheckRoomAvailability(roomID uint, sessionID uint, dayOfWe
 	if slotNumber < 1 || slotNumber > 8 {
 		return false, errors.New("invalid slot number (1-8)")
 	}
-	
+
 	return s.roomRepo.CheckAvailability(roomID, sessionID, dayOfWeek, slotNumber)
 }
 
@@ -149,6 +149,6 @@ func (s *roomService) GetAvailableRooms(sessionID uint, dayOfWeek int, slotNumbe
 	if slotNumber < 1 || slotNumber > 8 {
 		return nil, errors.New("invalid slot number (1-8)")
 	}
-	
+
 	return s.roomRepo.GetAvailableRooms(sessionID, dayOfWeek, slotNumber, roomType)
 }

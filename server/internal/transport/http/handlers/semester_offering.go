@@ -37,11 +37,11 @@ func (h *SemesterOfferingHandler) CreateSemesterOffering(c *gin.Context) {
 	}
 
 	offering := &models.SemesterOffering{
-		ProgrammeID:     req.ProgrammeID,
-		DepartmentID:    req.DepartmentID,
-		SessionID:       req.SessionID,
-		SemesterNumber:  req.SemesterNumber,
-		Status:          "DRAFT",
+		ProgrammeID:    req.ProgrammeID,
+		DepartmentID:   req.DepartmentID,
+		SessionID:      req.SessionID,
+		SemesterNumber: req.SemesterNumber,
+		Status:         "DRAFT",
 	}
 
 	if err := h.semesterOfferingService.CreateSemesterOffering(offering); err != nil {
@@ -261,7 +261,7 @@ func (h *SemesterOfferingHandler) AddCourseOffering(c *gin.Context) {
 // Teacher assignment for a course offering
 func (h *SemesterOfferingHandler) AssignTeacherToCourse(c *gin.Context) {
 	courseOfferingIDStr := c.Param("course_offering_id")
-	
+
 	courseOfferingID, err := strconv.ParseUint(courseOfferingIDStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
@@ -306,7 +306,7 @@ func (h *SemesterOfferingHandler) AssignTeacherToCourse(c *gin.Context) {
 // Room assignment for a course offering
 func (h *SemesterOfferingHandler) AssignRoomToCourse(c *gin.Context) {
 	courseOfferingIDStr := c.Param("course_offering_id")
-	
+
 	courseOfferingID, err := strconv.ParseUint(courseOfferingIDStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
@@ -409,7 +409,7 @@ func (h *SemesterOfferingHandler) RemoveCourseOffering(c *gin.Context) {
 func (h *SemesterOfferingHandler) RemoveTeacherFromCourse(c *gin.Context) {
 	courseOfferingIDStr := c.Param("course_offering_id")
 	teacherIDStr := c.Param("teacher_id")
-	
+
 	courseOfferingID, err := strconv.ParseUint(courseOfferingIDStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
@@ -449,7 +449,7 @@ func (h *SemesterOfferingHandler) RemoveTeacherFromCourse(c *gin.Context) {
 func (h *SemesterOfferingHandler) RemoveRoomFromCourse(c *gin.Context) {
 	courseOfferingIDStr := c.Param("course_offering_id")
 	roomIDStr := c.Param("room_id")
-	
+
 	courseOfferingID, err := strconv.ParseUint(courseOfferingIDStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{

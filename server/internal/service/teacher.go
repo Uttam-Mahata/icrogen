@@ -20,8 +20,8 @@ type TeacherService interface {
 }
 
 type teacherService struct {
-	teacherRepo     repository.TeacherRepository
-	departmentRepo  repository.DepartmentRepository
+	teacherRepo    repository.TeacherRepository
+	departmentRepo repository.DepartmentRepository
 }
 
 func NewTeacherService(
@@ -45,24 +45,24 @@ func (s *teacherService) CreateTeacher(teacher *models.Teacher) error {
 	if teacher.Email == "" {
 		return errors.New("email is required")
 	}
-	
+
 	// Validate email format
 	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 	if !emailRegex.MatchString(teacher.Email) {
 		return errors.New("invalid email format")
 	}
-	
+
 	// Handle empty initials - set to nil if empty
 	if teacher.Initials != nil && *teacher.Initials == "" {
 		teacher.Initials = nil
 	}
-	
+
 	// Validate that department exists
 	_, err := s.departmentRepo.GetByID(teacher.DepartmentID)
 	if err != nil {
 		return errors.New("invalid department ID")
 	}
-	
+
 	return s.teacherRepo.Create(teacher)
 }
 
@@ -92,7 +92,7 @@ func (s *teacherService) UpdateTeacher(teacher *models.Teacher) error {
 	if teacher.ID == 0 {
 		return errors.New("teacher ID is required for update")
 	}
-	
+
 	// Validate teacher data
 	if teacher.Name == "" {
 		return errors.New("teacher name is required")
@@ -103,18 +103,18 @@ func (s *teacherService) UpdateTeacher(teacher *models.Teacher) error {
 	if teacher.Email == "" {
 		return errors.New("email is required")
 	}
-	
+
 	// Validate email format
 	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 	if !emailRegex.MatchString(teacher.Email) {
 		return errors.New("invalid email format")
 	}
-	
+
 	// Handle empty initials - set to nil if empty
 	if teacher.Initials != nil && *teacher.Initials == "" {
 		teacher.Initials = nil
 	}
-	
+
 	return s.teacherRepo.Update(teacher)
 }
 
@@ -122,10 +122,10 @@ func (s *teacherService) DeleteTeacher(id uint) error {
 	if id == 0 {
 		return errors.New("invalid teacher ID")
 	}
-	
+
 	// TODO: Check if teacher has active assignments
 	// This would require checking TeacherAssignment records
-	
+
 	return s.teacherRepo.Delete(id)
 }
 
@@ -139,6 +139,6 @@ func (s *teacherService) CheckTeacherAvailability(teacherID uint, sessionID uint
 	if slotNumber < 1 || slotNumber > 8 {
 		return false, errors.New("invalid slot number (1-8)")
 	}
-	
+
 	return s.teacherRepo.CheckAvailability(teacherID, sessionID, dayOfWeek, slotNumber)
 }

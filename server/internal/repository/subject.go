@@ -52,7 +52,7 @@ func (r *subjectRepository) GetByDepartmentID(departmentID uint) ([]models.Subje
 func (r *subjectRepository) GetByProgrammeAndDepartment(programmeID uint, departmentID uint) ([]models.Subject, error) {
 	var subjects []models.Subject
 	err := r.db.Preload("SubjectType").
-		Where("programme_id = ? AND department_id = ? AND is_active = ?", 
+		Where("programme_id = ? AND department_id = ? AND is_active = ?",
 			programmeID, departmentID, true).
 		Find(&subjects).Error
 	return subjects, err

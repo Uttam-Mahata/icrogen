@@ -57,7 +57,7 @@ func main() {
 	for _, st := range subjectTypes {
 		var existing models.SubjectType
 		result := db.Where("name = ?", st.Name).First(&existing)
-		
+
 		if result.Error == nil {
 			fmt.Printf("Subject type '%s' already exists, skipping...\n", st.Name)
 			continue

@@ -30,7 +30,7 @@ func connectWithMigration(databaseURL string, runMigrations bool) (*gorm.DB, err
 			ServerName: "gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
 		})
 	}
-	
+
 	// Ensure parseTime=True is in the connection string for proper datetime parsing
 	if !strings.Contains(databaseURL, "parseTime=") {
 		if strings.Contains(databaseURL, "?") {
@@ -39,7 +39,7 @@ func connectWithMigration(databaseURL string, runMigrations bool) (*gorm.DB, err
 			databaseURL += "?parseTime=True"
 		}
 	}
-	
+
 	db, err := gorm.Open(mysqlDriver.Open(databaseURL), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
@@ -86,35 +86,35 @@ func addIndexes(db *gorm.DB) error {
 	if err := db.Exec("ALTER TABLE departments ADD UNIQUE INDEX uq_dept_prog_name (programme_id, name)").Error; err != nil {
 		// Ignore if already exists
 	}
-	
+
 	if err := db.Exec("ALTER TABLE subjects ADD UNIQUE INDEX uq_subj_prog_dept_code (programme_id, department_id, code)").Error; err != nil {
 		// Ignore if already exists
 	}
-	
+
 	if err := db.Exec("ALTER TABLE semester_definitions ADD UNIQUE INDEX uq_sem_def_prog_num (programme_id, semester_number)").Error; err != nil {
 		// Ignore if already exists
 	}
-	
+
 	if err := db.Exec("ALTER TABLE sessions ADD UNIQUE INDEX uq_session_name_year (name, academic_year)").Error; err != nil {
 		// Ignore if already exists
 	}
-	
+
 	if err := db.Exec("ALTER TABLE semester_offerings ADD UNIQUE INDEX uq_sem_off_prog_dept_sess_num (programme_id, department_id, session_id, semester_number)").Error; err != nil {
 		// Ignore if already exists
 	}
-	
+
 	if err := db.Exec("ALTER TABLE course_offerings ADD UNIQUE INDEX uq_course_off_sem_subj (semester_offering_id, subject_id)").Error; err != nil {
 		// Ignore if already exists
 	}
-	
+
 	if err := db.Exec("ALTER TABLE teacher_assignments ADD UNIQUE INDEX uq_teacher_assign_course_teacher (course_offering_id, teacher_id)").Error; err != nil {
 		// Ignore if already exists
 	}
-	
+
 	if err := db.Exec("ALTER TABLE room_assignments ADD UNIQUE INDEX uq_room_assign_course_room (course_offering_id, room_id)").Error; err != nil {
 		// Ignore if already exists
 	}
-	
+
 	if err := db.Exec("ALTER TABLE time_slots ADD UNIQUE INDEX uq_time_slot_day_num (day_of_week, slot_number)").Error; err != nil {
 		// Ignore if already exists
 	}
@@ -123,11 +123,11 @@ func addIndexes(db *gorm.DB) error {
 	if err := db.Exec("ALTER TABLE schedule_entries ADD UNIQUE INDEX uq_sched_entry_sess_day_slot_teacher (session_id, day_of_week, slot_number, teacher_id)").Error; err != nil {
 		// Ignore if already exists
 	}
-	
+
 	if err := db.Exec("ALTER TABLE schedule_entries ADD UNIQUE INDEX uq_sched_entry_sess_day_slot_room (session_id, day_of_week, slot_number, room_id)").Error; err != nil {
 		// Ignore if already exists
 	}
-	
+
 	if err := db.Exec("ALTER TABLE schedule_entries ADD UNIQUE INDEX uq_sched_entry_run_day_slot_course (schedule_run_id, day_of_week, slot_number, course_offering_id)").Error; err != nil {
 		// Ignore if already exists
 	}

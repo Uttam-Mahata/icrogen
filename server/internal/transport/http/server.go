@@ -159,7 +159,7 @@ func (s *Server) setupRoutes() {
 			semesterOfferings.GET("/:id", semesterOfferingHandler.GetSemesterOffering)
 			semesterOfferings.PUT("/:id", semesterOfferingHandler.UpdateSemesterOffering)
 			semesterOfferings.DELETE("/:id", semesterOfferingHandler.DeleteSemesterOffering)
-			
+
 			// Course offering management within a semester offering
 			semesterOfferings.GET("/:id/course-offerings", semesterOfferingHandler.GetCourseOfferings)
 			semesterOfferings.POST("/:id/course-offerings", semesterOfferingHandler.AddCourseOffering)

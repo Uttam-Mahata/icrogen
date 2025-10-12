@@ -78,7 +78,7 @@ func (s *courseOfferingService) CreateCourseOffering(offering *models.CourseOffe
 			offering.RequiredPattern = `["1"]`
 		}
 	}
-	
+
 	// Validate and format RequiredPattern as JSON
 	if offering.RequiredPattern != "" {
 		// Check if it's already valid JSON
@@ -114,13 +114,13 @@ func (s *courseOfferingService) CreateCourseOfferingWithTeachers(offering *model
 	if offering.PreferredRoomID == nil {
 		// Get subject to determine room type needed
 		subject, _ := s.subjectRepo.GetByID(offering.SubjectID)
-		
+
 		// Determine required room type
 		roomType := "THEORY"
 		if subject.SubjectType.IsLab {
 			roomType = "LAB"
 		}
-		
+
 		// Get all available rooms of the required type
 		rooms, err := s.roomRepo.GetByType(roomType)
 		if err == nil && len(rooms) > 0 {
@@ -130,22 +130,22 @@ func (s *courseOfferingService) CreateCourseOfferingWithTeachers(offering *model
 					// Assign this free room
 					roomAssignment := &models.RoomAssignment{
 						CourseOfferingID: offering.ID,
-						RoomID:          room.ID,
-						Priority:        1,
+						RoomID:           room.ID,
+						Priority:         1,
 					}
 					s.courseOfferingRepo.AssignRoom(roomAssignment)
 					break
 				}
 			}
-			
+
 			// If no free room found, use the first available room of correct type
 			if offering.PreferredRoomID == nil {
 				for _, room := range rooms {
 					if room.IsActive {
 						roomAssignment := &models.RoomAssignment{
 							CourseOfferingID: offering.ID,
-							RoomID:          room.ID,
-							Priority:        2, // Lower priority for department-owned rooms
+							RoomID:           room.ID,
+							Priority:         2, // Lower priority for department-owned rooms
 						}
 						s.courseOfferingRepo.AssignRoom(roomAssignment)
 						break
@@ -157,8 +157,8 @@ func (s *courseOfferingService) CreateCourseOfferingWithTeachers(offering *model
 		// Use the preferred room
 		roomAssignment := &models.RoomAssignment{
 			CourseOfferingID: offering.ID,
-			RoomID:          *offering.PreferredRoomID,
-			Priority:        1,
+			RoomID:           *offering.PreferredRoomID,
+			Priority:         1,
 		}
 		s.courseOfferingRepo.AssignRoom(roomAssignment)
 	}
@@ -169,11 +169,11 @@ func (s *courseOfferingService) CreateCourseOfferingWithTeachers(offering *model
 		if _, err := s.teacherRepo.GetByID(teacherID); err != nil {
 			continue // Skip invalid teacher IDs
 		}
-		
+
 		assignment := &models.TeacherAssignment{
 			CourseOfferingID: offering.ID,
-			TeacherID:       teacherID,
-			Weight:          1,
+			TeacherID:        teacherID,
+			Weight:           1,
 		}
 		s.courseOfferingRepo.AssignTeacher(assignment)
 	}
@@ -257,19 +257,19 @@ func (s *courseOfferingService) RemoveTeacher(courseOfferingID uint, teacherID u
 	if courseOfferingID == 0 || teacherID == 0 {
 		return errors.New("invalid course offering or teacher ID")
 	}
-	
+
 	// Find the assignment to remove
 	assignments, err := s.courseOfferingRepo.GetTeacherAssignments(courseOfferingID)
 	if err != nil {
 		return err
 	}
-	
+
 	for _, assignment := range assignments {
 		if assignment.TeacherID == teacherID {
 			return s.courseOfferingRepo.RemoveTeacherAssignment(assignment.ID)
 		}
 	}
-	
+
 	return errors.New("teacher assignment not found")
 }
 
@@ -320,19 +320,19 @@ func (s *courseOfferingService) RemoveRoom(courseOfferingID uint, roomID uint) e
 	if courseOfferingID == 0 || roomID == 0 {
 		return errors.New("invalid course offering or room ID")
 	}
-	
+
 	// Find the assignment to remove
 	assignments, err := s.courseOfferingRepo.GetRoomAssignments(courseOfferingID)
 	if err != nil {
 		return err
 	}
-	
+
 	for _, assignment := range assignments {
 		if assignment.RoomID == roomID {
 			return s.courseOfferingRepo.RemoveRoomAssignment(assignment.ID)
 		}
 	}
-	
+
 	return errors.New("room assignment not found")
 }
 

@@ -109,10 +109,10 @@ type UpdateSemesterOfferingRequest struct {
 }
 
 type CreateSemesterOfferingRequest struct {
-	ProgrammeID    uint   `json:"programme_id" binding:"required"`
-	DepartmentID   uint   `json:"department_id" binding:"required"`
-	SessionID      uint   `json:"session_id" binding:"required"`
-	SemesterNumber int    `json:"semester_number" binding:"required,min=1"`
+	ProgrammeID    uint `json:"programme_id" binding:"required"`
+	DepartmentID   uint `json:"department_id" binding:"required"`
+	SessionID      uint `json:"session_id" binding:"required"`
+	SemesterNumber int  `json:"semester_number" binding:"required,min=1"`
 }
 
 type CreateCourseOfferingRequest struct {

@@ -12,18 +12,18 @@ type ScheduleRepository interface {
 	GetScheduleRunByID(id uint) (*models.ScheduleRun, error)
 	GetScheduleRunsBySemesterOffering(semesterOfferingID uint) ([]models.ScheduleRun, error)
 	UpdateScheduleRun(run *models.ScheduleRun) error
-	
+
 	CreateScheduleBlock(block *models.ScheduleBlock) error
 	CreateScheduleEntry(entry *models.ScheduleEntry) error
 	CreateScheduleEntries(entries []models.ScheduleEntry) error
-	
+
 	GetScheduleEntriesByRun(scheduleRunID uint) ([]models.ScheduleEntry, error)
 	GetScheduleEntriesBySession(sessionID uint) ([]models.ScheduleEntry, error)
 	GetCommittedScheduleEntries(sessionID uint) ([]models.ScheduleEntry, error)
-	
+
 	DeleteScheduleEntriesByRun(scheduleRunID uint) error
 	CommitScheduleRun(scheduleRunID uint) error
-	
+
 	CheckTeacherAvailability(teacherID uint, sessionID uint, dayOfWeek int, slotNumbers []int) (bool, error)
 	CheckRoomAvailability(roomID uint, sessionID uint, dayOfWeek int, slotNumbers []int) (bool, error)
 	CheckStudentGroupAvailability(semesterOfferingID uint, dayOfWeek int, slotNumbers []int, excludeRunID uint) (bool, error)
@@ -136,14 +136,14 @@ func (r *scheduleRepository) CheckTeacherAvailability(teacherID uint, sessionID 
 	var count int64
 	err := r.db.Model(&models.ScheduleEntry{}).
 		Joins("JOIN schedule_runs ON schedule_entries.schedule_run_id = schedule_runs.id").
-		Where("schedule_entries.teacher_id = ? AND schedule_entries.session_id = ? AND schedule_entries.day_of_week = ? AND schedule_entries.slot_number IN ? AND schedule_runs.status = ?", 
+		Where("schedule_entries.teacher_id = ? AND schedule_entries.session_id = ? AND schedule_entries.day_of_week = ? AND schedule_entries.slot_number IN ? AND schedule_runs.status = ?",
 			teacherID, sessionID, dayOfWeek, slotNumbers, "COMMITTED").
 		Count(&count).Error
-	
+
 	if err != nil {
 		return false, err
 	}
-	
+
 	return count == 0, nil
 }
 
@@ -151,14 +151,14 @@ func (r *scheduleRepository) CheckRoomAvailability(roomID uint, sessionID uint, 
 	var count int64
 	err := r.db.Model(&models.ScheduleEntry{}).
 		Joins("JOIN schedule_runs ON schedule_entries.schedule_run_id = schedule_runs.id").
-		Where("schedule_entries.room_id = ? AND schedule_entries.session_id = ? AND schedule_entries.day_of_week = ? AND schedule_entries.slot_number IN ? AND schedule_runs.status = ?", 
+		Where("schedule_entries.room_id = ? AND schedule_entries.session_id = ? AND schedule_entries.day_of_week = ? AND schedule_entries.slot_number IN ? AND schedule_runs.status = ?",
 			roomID, sessionID, dayOfWeek, slotNumbers, "COMMITTED").
 		Count(&count).Error
-	
+
 	if err != nil {
 		return false, err
 	}
-	
+
 	return count == 0, nil
 }
 
@@ -166,18 +166,18 @@ func (r *scheduleRepository) CheckStudentGroupAvailability(semesterOfferingID ui
 	var count int64
 	query := r.db.Model(&models.ScheduleEntry{}).
 		Joins("JOIN schedule_runs ON schedule_entries.schedule_run_id = schedule_runs.id").
-		Where("schedule_entries.semester_offering_id = ? AND schedule_entries.day_of_week = ? AND schedule_entries.slot_number IN ? AND schedule_runs.status = ?", 
+		Where("schedule_entries.semester_offering_id = ? AND schedule_entries.day_of_week = ? AND schedule_entries.slot_number IN ? AND schedule_runs.status = ?",
 			semesterOfferingID, dayOfWeek, slotNumbers, "COMMITTED")
-	
+
 	if excludeRunID > 0 {
 		query = query.Where("schedule_entries.schedule_run_id != ?", excludeRunID)
 	}
-	
+
 	err := query.Count(&count).Error
-	
+
 	if err != nil {
 		return false, err
 	}
-	
+
 	return count == 0, nil
 }
