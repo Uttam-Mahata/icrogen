@@ -587,19 +587,17 @@ func (s *routineGenerationService) generatePlacementSuggestions(block models.Cla
 func (s *routineGenerationService) convertTimetableToEntries(timetable models.Timetable, scheduleRunID uint, semesterOffering *models.SemesterOffering) []models.ScheduleEntry {
 	var entries []models.ScheduleEntry
 	blockToID := make(map[*models.ClassBlock]uint)
-	blockIDCounter := uint(1)
 	
 	// First pass: create schedule blocks
-	processedBlocks := make(map[string]bool)
+	// We use the block pointer as the key since each unique block placement has a unique pointer
+	processedBlocks := make(map[*models.ClassBlock]bool)
 	
 	for day := 1; day <= 5; day++ {
 		for slot := 1; slot <= 7; slot++ {
 			if slotInfo, exists := timetable[day][slot]; exists && slotInfo.IsBooked && slotInfo.Block != nil {
-				// Create a unique key for this block placement
-				blockKey := fmt.Sprintf("%d-%d-%d-%d", slotInfo.Block.CourseOfferingID, day, slot, slotInfo.Block.DurationSlots)
-				
-				// Only create schedule block once for multi-slot blocks
-				if !processedBlocks[blockKey] {
+				// Only create schedule block once per unique block instance
+				// Multi-slot blocks share the same pointer across all their slots
+				if !processedBlocks[slotInfo.Block] {
 					scheduleBlock := models.ScheduleBlock{
 						ScheduleRunID:    scheduleRunID,
 						CourseOfferingID: slotInfo.Block.CourseOfferingID,
@@ -613,21 +611,23 @@ func (s *routineGenerationService) convertTimetableToEntries(timetable models.Ti
 					
 					if err := s.scheduleRepo.CreateScheduleBlock(&scheduleBlock); err == nil {
 						blockToID[slotInfo.Block] = scheduleBlock.ID
-						processedBlocks[blockKey] = true
+						processedBlocks[slotInfo.Block] = true
 					}
 				}
 			}
 		}
 	}
 	
-	// Second pass: create schedule entries
+	// Second pass: create schedule entries for each occupied slot
 	for day := 1; day <= 5; day++ {
 		for slot := 1; slot <= 7; slot++ {
 			if slotInfo, exists := timetable[day][slot]; exists && slotInfo.IsBooked && slotInfo.Block != nil {
-				blockID := blockToID[slotInfo.Block]
-				if blockID == 0 {
-					blockID = blockIDCounter
-					blockIDCounter++
+				// Get the block ID from the map (should always exist since we created it in first pass)
+				blockID, exists := blockToID[slotInfo.Block]
+				if !exists {
+					// This should never happen, but log a warning if it does
+					logrus.Warnf("Block ID not found for block at day %d, slot %d", day, slot)
+					continue
 				}
 				
 				entry := models.ScheduleEntry{
