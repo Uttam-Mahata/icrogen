@@ -375,11 +375,12 @@ func (s *routineGenerationService) backtrack(blocks []models.ClassBlock, index i
 		
 		// Recurse
 		result := s.backtrack(blocks, index+1, timetable, sessionID)
-		if result > index {
-			return result // Found a solution
+		if result == len(blocks) {
+			// Successfully placed all remaining blocks
+			return result
 		}
 		
-		// Backtrack
+		// Backtrack - either couldn't place next block or couldn't complete the schedule
 		s.removeBlock(currentBlock, p.day, p.slot, timetable)
 	}
 	
