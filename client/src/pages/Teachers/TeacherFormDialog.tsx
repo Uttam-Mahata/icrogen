@@ -1,23 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Grid,
-  FormControlLabel,
-  Switch,
-  Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Typography,
-} from '@mui/material';
 import { type Teacher, type Department } from '../../types/models';
 import { teacherService, type CreateTeacherRequest, type UpdateTeacherRequest } from '../../services/teacherService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Select } from '../../components/ui/select';
+import { Switch } from '../../components/ui/switch';
+import { Alert } from '../../components/ui/alert';
+import { cn } from '@/lib/utils';
 
 interface TeacherFormDialogProps {
   open: boolean;
@@ -136,110 +127,116 @@ const TeacherFormDialog: React.FC<TeacherFormDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {teacher ? 'Edit Teacher' : 'Add New Teacher'}
-      </DialogTitle>
-      <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 1 }}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>
+            {teacher ? 'Edit Teacher' : 'Add New Teacher'}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
           {submitError && (
-            <Grid item xs={12}>
-              <Alert severity="error" onClose={() => setSubmitError(null)}>
-                {submitError}
-              </Alert>
-            </Grid>
+            <Alert variant="destructive">
+              {submitError}
+            </Alert>
           )}
-          
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Full Name"
+
+          <div className="space-y-2">
+            <Label htmlFor="name">
+              Full Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="name"
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
-              error={!!errors.name}
-              helperText={errors.name}
-              required
+              className={cn(errors.name && "border-destructive")}
             />
-          </Grid>
+            {errors.name && (
+              <p className="text-sm text-destructive">{errors.name}</p>
+            )}
+          </div>
 
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Initials"
+          <div className="space-y-2">
+            <Label htmlFor="initials">
+              Initials <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="initials"
               value={formData.initials}
               onChange={(e) => handleChange('initials', e.target.value.toUpperCase())}
-              error={!!errors.initials}
-              helperText={errors.initials || 'e.g., SMK, NG'}
-              inputProps={{ maxLength: 10 }}
-              required
+              maxLength={10}
+              className={cn(errors.initials && "border-destructive")}
             />
-          </Grid>
+            {errors.initials ? (
+              <p className="text-sm text-destructive">{errors.initials}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">e.g., SMK, NG</p>
+            )}
+          </div>
 
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
+          <div className="space-y-2">
+            <Label htmlFor="email">
+              Email Address <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="email"
               type="email"
-              label="Email Address"
               value={formData.email}
               onChange={(e) => handleChange('email', e.target.value)}
-              error={!!errors.email}
-              helperText={errors.email}
-              required
+              className={cn(errors.email && "border-destructive")}
             />
-          </Grid>
+            {errors.email && (
+              <p className="text-sm text-destructive">{errors.email}</p>
+            )}
+          </div>
 
           {!teacher && (
-            <Grid item xs={12}>
-              <FormControl fullWidth error={!!errors.department_id}>
-                <InputLabel>Department</InputLabel>
-                <Select
-                  value={formData.department_id}
-                  onChange={(e) => handleChange('department_id', e.target.value)}
-                  label="Department"
-                  required
-                >
-                  {departments.map((dept) => (
-                    <MenuItem key={dept.id} value={dept.id}>
-                      {dept.name} ({dept.programme?.name || 'Programme'})
-                    </MenuItem>
-                  ))}
-                </Select>
-                {errors.department_id && (
-                  <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                    {errors.department_id}
-                  </Typography>
-                )}
-              </FormControl>
-            </Grid>
+            <div className="space-y-2">
+              <Label htmlFor="department">
+                Department <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                id="department"
+                value={String(formData.department_id)}
+                onChange={(e) => handleChange('department_id', Number(e.target.value))}
+                className={cn(errors.department_id && "border-destructive")}
+              >
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name} ({dept.programme?.name || 'Programme'})
+                  </option>
+                ))}
+              </Select>
+              {errors.department_id && (
+                <p className="text-sm text-destructive">{errors.department_id}</p>
+              )}
+            </div>
           )}
 
           {teacher && (
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.is_active}
-                    onChange={(e) => handleChange('is_active', e.target.checked)}
-                  />
-                }
-                label="Active"
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => handleChange('is_active', checked)}
               />
-            </Grid>
+              <Label htmlFor="active" className="cursor-pointer">
+                Active
+              </Label>
+            </div>
           )}
-        </Grid>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting ? 'Saving...' : (teacher ? 'Update' : 'Create')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={submitting}
-        >
-          {submitting ? 'Saving...' : (teacher ? 'Update' : 'Create')}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 };

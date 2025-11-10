@@ -1,36 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  Tooltip,
-  TextField,
-  InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-} from '@mui/material';
-import {
-  Add,
-  Edit,
-  Delete,
-  Visibility,
-  Search,
-  Business,
-  People,
-} from '@mui/icons-material';
+import { Plus, Pencil, Trash2, Eye, Search, Building2, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Department, Programme } from '../../types/models';
 import { departmentService } from '../../services/departmentService';
@@ -39,6 +8,15 @@ import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import ErrorAlert from '../../components/Common/ErrorAlert';
 import ConfirmDialog from '../../components/Common/ConfirmDialog';
 import DepartmentFormDialog from './DepartmentFormDialog';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Select } from '../../components/ui/select';
+import { Badge } from '../../components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Tooltip } from '../../components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 const DepartmentList: React.FC = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -123,148 +101,129 @@ const DepartmentList: React.FC = () => {
   if (error) return <ErrorAlert error={error} />;
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" gutterBottom fontWeight="bold">
-            Departments
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Departments</h1>
+          <p className="text-muted-foreground mt-1">
             Manage academic departments across programmes
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={handleAdd}
-          size="large"
-        >
+          </p>
+        </div>
+        <Button onClick={handleAdd} size="lg">
+          <Plus className="mr-2 h-4 w-4" />
           Add Department
         </Button>
-      </Box>
+      </div>
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box display="flex" gap={2}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Search departments..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControl sx={{ minWidth: 200 }}>
-              <InputLabel>Programme</InputLabel>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search departments..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="w-[200px]">
               <Select
-                value={selectedProgramme}
-                onChange={(e) => setSelectedProgramme(e.target.value as number | '')}
-                label="Programme"
+                value={selectedProgramme === '' ? '' : String(selectedProgramme)}
+                onChange={(e) => setSelectedProgramme(e.target.value === '' ? '' : Number(e.target.value))}
               >
-                <MenuItem value="">All Programmes</MenuItem>
+                <option value="">All Programmes</option>
                 {programmes.map((prog) => (
-                  <MenuItem key={prog.id} value={prog.id}>
+                  <option key={prog.id} value={prog.id}>
                     {prog.name}
-                  </MenuItem>
+                  </option>
                 ))}
               </Select>
-            </FormControl>
-          </Box>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      <TableContainer component={Paper}>
+      <div className="rounded-md border">
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableCell>Department Name</TableCell>
-              <TableCell>Programme</TableCell>
-              <TableCell align="center">Strength</TableCell>
-              <TableCell align="center">Status</TableCell>
-              <TableCell align="center">Actions</TableCell>
+              <TableHead>Department Name</TableHead>
+              <TableHead>Programme</TableHead>
+              <TableHead className="text-center">Strength</TableHead>
+              <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {filteredDepartments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
-                  <Box py={4}>
-                    <Business sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-                    <Typography variant="body1" color="text.secondary">
-                      No departments found
-                    </Typography>
-                  </Box>
+                <TableCell colSpan={5} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2">
+                    <Building2 className="h-12 w-12 text-muted-foreground/50" />
+                    <p className="text-muted-foreground">No departments found</p>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
               filteredDepartments.map((department) => (
-                <TableRow key={department.id} hover>
+                <TableRow key={department.id} className="hover:bg-muted/50">
                   <TableCell>
-                    <Typography variant="subtitle2" fontWeight="medium">
-                      {department.name}
-                    </Typography>
+                    <span className="font-medium">{department.name}</span>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={programmes.find(p => p.id === department.programme_id)?.name || 'Unknown'}
-                      size="small"
-                      variant="outlined"
-                    />
+                    <Badge variant="outline">
+                      {programmes.find(p => p.id === department.programme_id)?.name || 'Unknown'}
+                    </Badge>
                   </TableCell>
-                  <TableCell align="center">
-                    <Box display="flex" alignItems="center" justifyContent="center" gap={0.5}>
-                      <People fontSize="small" color="action" />
-                      <Typography variant="body2">{department.strength}</Typography>
-                    </Box>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{department.strength}</span>
+                    </div>
                   </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={department.is_active ? 'Active' : 'Inactive'}
-                      color={department.is_active ? 'success' : 'default'}
-                      size="small"
-                    />
+                  <TableCell className="text-center">
+                    <Badge variant={department.is_active ? "default" : "secondary"}>
+                      {department.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
                   </TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="View Details">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleView(department)}
-                        color="info"
-                      >
-                        <Visibility />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEdit(department)}
-                        color="primary"
-                      >
-                        <Edit />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => setDeleteDialog({ open: true, department })}
-                        color="error"
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Tooltip>
+                  <TableCell className="text-center">
+                    <div className="flex justify-center gap-1">
+                      <Tooltip content="View Details">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleView(department)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content="Edit">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(department)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content="Delete">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteDialog({ open: true, department })}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </Tooltip>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </div>
 
       <DepartmentFormDialog
         open={openForm}
@@ -283,7 +242,7 @@ const DepartmentList: React.FC = () => {
         confirmText="Delete"
         confirmColor="error"
       />
-    </Box>
+    </div>
   );
 };
 

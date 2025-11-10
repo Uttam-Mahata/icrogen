@@ -1,25 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Grid,
-  Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Typography,
-  Box,
-  Chip,
-} from '@mui/material';
 import { type SemesterOffering, type Programme, type Department, type Session } from '../../types/models';
 import { semesterOfferingService, type CreateSemesterOfferingRequest, type UpdateSemesterOfferingRequest } from '../../services/semesterOfferingService';
 import { programmeService } from '../../services/programmeService';
 import { departmentService } from '../../services/departmentService';
 import { sessionService } from '../../services/sessionService';
+import { Button } from '../../components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../../components/ui/dialog';
+import { Label } from '../../components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
+import { Alert } from '../../components/ui/alert';
+import { Badge } from '../../components/ui/badge';
+import { AlertCircle, Info } from 'lucide-react';
 
 interface SemesterOfferingFormDialogProps {
   open: boolean;
@@ -173,186 +176,177 @@ const SemesterOfferingFormDialog: React.FC<SemesterOfferingFormDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {offering ? 'Edit Semester Offering' : 'Add New Semester Offering'}
-      </DialogTitle>
-      <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 1 }}>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>
+            {offering ? 'Edit Semester Offering' : 'Add New Semester Offering'}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
           {submitError && (
-            <Grid item xs={12}>
-              <Alert severity="error" onClose={() => setSubmitError(null)}>
-                {submitError}
-              </Alert>
-            </Grid>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <span className="ml-2">{submitError}</span>
+            </Alert>
           )}
-          
+
           {!offering && (
             <>
-              <Grid item xs={12}>
-                <FormControl fullWidth error={!!errors.programme_id}>
-                  <InputLabel>Programme</InputLabel>
-                  <Select
-                    value={formData.programme_id || ''}
-                    onChange={(e) => handleChange('programme_id', Number(e.target.value))}
-                    label="Programme"
-                    required
-                    disabled={loadingData}
-                  >
-                    <MenuItem value="">Select Programme</MenuItem>
+              <div className="space-y-2">
+                <Label htmlFor="programme">Programme</Label>
+                <Select
+                  value={formData.programme_id.toString()}
+                  onValueChange={(value) => handleChange('programme_id', Number(value))}
+                  disabled={loadingData}
+                >
+                  <SelectTrigger id="programme" className={errors.programme_id ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Select Programme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Select Programme</SelectItem>
                     {programmes.map(programme => (
-                      <MenuItem key={programme.id} value={programme.id}>
+                      <SelectItem key={programme.id} value={programme.id.toString()}>
                         {programme.name}
-                      </MenuItem>
+                      </SelectItem>
                     ))}
-                  </Select>
-                  {errors.programme_id && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                      {errors.programme_id}
-                    </Typography>
-                  )}
-                </FormControl>
-              </Grid>
+                  </SelectContent>
+                </Select>
+                {errors.programme_id && <p className="text-sm text-red-500">{errors.programme_id}</p>}
+              </div>
 
-              <Grid item xs={12}>
-                <FormControl fullWidth error={!!errors.department_id}>
-                  <InputLabel>Department</InputLabel>
-                  <Select
-                    value={formData.department_id || ''}
-                    onChange={(e) => handleChange('department_id', Number(e.target.value))}
-                    label="Department"
-                    required
-                    disabled={loadingData}
-                  >
-                    <MenuItem value="">Select Department</MenuItem>
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <Select
+                  value={formData.department_id.toString()}
+                  onValueChange={(value) => handleChange('department_id', Number(value))}
+                  disabled={loadingData}
+                >
+                  <SelectTrigger id="department" className={errors.department_id ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Select Department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Select Department</SelectItem>
                     {departments.map(department => (
-                      <MenuItem key={department.id} value={department.id}>
+                      <SelectItem key={department.id} value={department.id.toString()}>
                         {department.name}
-                      </MenuItem>
+                      </SelectItem>
                     ))}
-                  </Select>
-                  {errors.department_id && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                      {errors.department_id}
-                    </Typography>
-                  )}
-                </FormControl>
-              </Grid>
+                  </SelectContent>
+                </Select>
+                {errors.department_id && <p className="text-sm text-red-500">{errors.department_id}</p>}
+              </div>
 
-              <Grid item xs={12}>
-                <FormControl fullWidth error={!!errors.session_id}>
-                  <InputLabel>Session</InputLabel>
-                  <Select
-                    value={formData.session_id || ''}
-                    onChange={(e) => {
-                      const sessionId = Number(e.target.value);
-                      handleChange('session_id', sessionId);
-                      // Reset semester number when session changes
-                      const availableSemesters = getAvailableSemesters();
-                      if (availableSemesters.length > 0 && !availableSemesters.includes(formData.semester_number)) {
-                        handleChange('semester_number', availableSemesters[0]);
-                      }
-                    }}
-                    label="Session"
-                    required
-                    disabled={loadingData}
-                  >
-                    <MenuItem value="">Select Session</MenuItem>
+              <div className="space-y-2">
+                <Label htmlFor="session">Session</Label>
+                <Select
+                  value={formData.session_id.toString()}
+                  onValueChange={(value) => {
+                    const sessionId = Number(value);
+                    handleChange('session_id', sessionId);
+                    // Reset semester number when session changes
+                    const availableSemesters = getAvailableSemesters();
+                    if (availableSemesters.length > 0 && !availableSemesters.includes(formData.semester_number)) {
+                      handleChange('semester_number', availableSemesters[0]);
+                    }
+                  }}
+                  disabled={loadingData}
+                >
+                  <SelectTrigger id="session" className={errors.session_id ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Select Session" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Select Session</SelectItem>
                     {sessions.map(session => (
-                      <MenuItem key={session.id} value={session.id}>
-                        <Box display="flex" alignItems="center" gap={1}>
+                      <SelectItem key={session.id} value={session.id.toString()}>
+                        <div className="flex items-center gap-2">
                           <span>{session.name} {session.academic_year}</span>
-                          <Chip 
-                            label={session.parity} 
-                            size="small" 
-                            color={session.parity === 'ODD' ? 'warning' : 'info'}
-                          />
-                        </Box>
-                      </MenuItem>
+                          <Badge
+                            variant="outline"
+                            className={session.parity === 'ODD' ? 'border-orange-500 text-orange-600' : 'border-sky-500 text-sky-600'}
+                          >
+                            {session.parity}
+                          </Badge>
+                        </div>
+                      </SelectItem>
                     ))}
-                  </Select>
-                  {errors.session_id && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                      {errors.session_id}
-                    </Typography>
-                  )}
-                </FormControl>
-              </Grid>
+                  </SelectContent>
+                </Select>
+                {errors.session_id && <p className="text-sm text-red-500">{errors.session_id}</p>}
+              </div>
 
-              <Grid item xs={12}>
-                <FormControl fullWidth error={!!errors.semester_number}>
-                  <InputLabel>Semester</InputLabel>
-                  <Select
-                    value={formData.semester_number}
-                    onChange={(e) => handleChange('semester_number', Number(e.target.value))}
-                    label="Semester"
-                    required
-                    disabled={!formData.session_id || loadingData}
-                  >
+              <div className="space-y-2">
+                <Label htmlFor="semester">Semester</Label>
+                <Select
+                  value={formData.semester_number.toString()}
+                  onValueChange={(value) => handleChange('semester_number', Number(value))}
+                  disabled={!formData.session_id || loadingData}
+                >
+                  <SelectTrigger id="semester" className={errors.semester_number ? 'border-red-500' : ''}>
+                    <SelectValue placeholder="Select Semester" />
+                  </SelectTrigger>
+                  <SelectContent>
                     {getAvailableSemesters().map(num => (
-                      <MenuItem key={num} value={num}>
+                      <SelectItem key={num} value={num.toString()}>
                         {getSemesterLabel(num)}
-                      </MenuItem>
+                      </SelectItem>
                     ))}
-                  </Select>
-                  {errors.semester_number && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                      {errors.semester_number}
-                    </Typography>
-                  )}
-                  {formData.session_id && (
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                      Only {getSessionParity(formData.session_id)} semesters are available for this session
-                    </Typography>
-                  )}
-                </FormControl>
-              </Grid>
+                  </SelectContent>
+                </Select>
+                {errors.semester_number && <p className="text-sm text-red-500">{errors.semester_number}</p>}
+                {formData.session_id && (
+                  <p className="text-sm text-gray-500">
+                    Only {getSessionParity(formData.session_id)} semesters are available for this session
+                  </p>
+                )}
+              </div>
             </>
           )}
 
           {offering && (
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
                 <Select
                   value={formData.status}
-                  onChange={(e) => handleChange('status', e.target.value)}
-                  label="Status"
+                  onValueChange={(value) => handleChange('status', value)}
                 >
-                  <MenuItem value="DRAFT">Draft</MenuItem>
-                  <MenuItem value="ACTIVE">Active</MenuItem>
-                  <MenuItem value="ARCHIVED">Archived</MenuItem>
+                  <SelectTrigger id="status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DRAFT">Draft</SelectItem>
+                    <SelectItem value="ACTIVE">Active</SelectItem>
+                    <SelectItem value="ARCHIVED">Archived</SelectItem>
+                  </SelectContent>
                 </Select>
-              </FormControl>
-            </Grid>
-          )}
+              </div>
 
-          {offering && (
-            <Grid item xs={12}>
-              <Alert severity="info" icon={false}>
-                <Typography variant="body2">
-                  <strong>Programme:</strong> {offering.programme?.name}<br />
-                  <strong>Department:</strong> {offering.department?.name}<br />
-                  <strong>Session:</strong> {offering.session?.name} {offering.session?.academic_year}<br />
-                  <strong>Semester:</strong> {getSemesterLabel(offering.semester_number)}
-                </Typography>
+              <Alert>
+                <Info className="h-4 w-4" />
+                <div className="ml-2">
+                  <p className="text-sm">
+                    <strong>Programme:</strong> {offering.programme?.name}<br />
+                    <strong>Department:</strong> {offering.department?.name}<br />
+                    <strong>Session:</strong> {offering.session?.name} {offering.session?.academic_year}<br />
+                    <strong>Semester:</strong> {getSemesterLabel(offering.semester_number)}
+                  </p>
+                </div>
               </Alert>
-            </Grid>
+            </>
           )}
-        </Grid>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitting || loadingData}>
+            {submitting ? 'Saving...' : (offering ? 'Update' : 'Create')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={submitting || loadingData}
-        >
-          {submitting ? 'Saving...' : (offering ? 'Update' : 'Create')}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 };

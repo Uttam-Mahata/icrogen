@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"icrogen/internal/models"
 	"strings"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 	mysqlDriver "gorm.io/driver/mysql"
@@ -11,7 +12,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// Connect establishes a connection to the MySQL database
+// Connect establishes a connection to the MySQL database with connection pooling
 func Connect(databaseURL string) (*gorm.DB, error) {
 	// Register TLS config for TiDB if the connection string contains tls=tidb
 	if strings.Contains(databaseURL, "tls=tidb") {
@@ -33,10 +34,28 @@ func Connect(databaseURL string) (*gorm.DB, error) {
 	// Use Warn level to reduce log noise (only logs errors and slow queries)
 	db, err := gorm.Open(mysqlDriver.Open(databaseURL), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Warn),
+		// Improve performance with prepared statement caching
+		PrepareStmt: true,
 	})
 	if err != nil {
 		return nil, err
 	}
+
+	// Configure connection pooling for optimal performance
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool
+	sqlDB.SetMaxIdleConns(10)
+
+	// SetMaxOpenConns sets the maximum number of open connections to the database
+	sqlDB.SetMaxOpenConns(100)
+
+	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused
+	// This helps avoid issues with MySQL's wait_timeout
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	return db, nil
 }

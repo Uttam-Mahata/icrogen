@@ -1,23 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Grid,
-  FormControlLabel,
-  Switch,
-  Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Typography,
-} from '@mui/material';
 import { type Room, type Department } from '../../types/models';
 import { roomService, type CreateRoomRequest, type UpdateRoomRequest } from '../../services/roomService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Select } from '../../components/ui/select';
+import { Switch } from '../../components/ui/switch';
+import { Alert } from '../../components/ui/alert';
+import { cn } from '@/lib/utils';
 
 interface RoomFormDialogProps {
   open: boolean;
@@ -149,132 +140,143 @@ const RoomFormDialog: React.FC<RoomFormDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {room ? 'Edit Room' : 'Add New Room'}
-      </DialogTitle>
-      <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 1 }}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>
+            {room ? 'Edit Room' : 'Add New Room'}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
           {submitError && (
-            <Grid item xs={12}>
-              <Alert severity="error" onClose={() => setSubmitError(null)}>
-                {submitError}
-              </Alert>
-            </Grid>
+            <Alert variant="destructive">
+              {submitError}
+            </Alert>
           )}
-          
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Room Name"
+
+          <div className="space-y-2">
+            <Label htmlFor="name">
+              Room Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="name"
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
-              error={!!errors.name}
-              helperText={errors.name || 'e.g., Computer Lab, Room 101'}
-              required
+              className={cn(errors.name && "border-destructive")}
             />
-          </Grid>
+            {errors.name ? (
+              <p className="text-sm text-destructive">{errors.name}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">e.g., Computer Lab, Room 101</p>
+            )}
+          </div>
 
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Room Number"
-              value={formData.room_number}
-              onChange={(e) => handleChange('room_number', e.target.value)}
-              error={!!errors.room_number}
-              helperText={errors.room_number || 'e.g., 101, L201'}
-              required
-            />
-          </Grid>
-
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              type="number"
-              label="Capacity"
-              value={formData.capacity}
-              onChange={(e) => handleChange('capacity', parseInt(e.target.value) || 0)}
-              error={!!errors.capacity}
-              helperText={errors.capacity || 'Number of students'}
-              inputProps={{ min: 1, max: 500 }}
-              required
-            />
-          </Grid>
-
-          <Grid item xs={12}>
-            <FormControl fullWidth error={!!errors.type}>
-              <InputLabel>Room Type</InputLabel>
-              <Select
-                value={formData.type}
-                onChange={(e) => handleChange('type', e.target.value)}
-                label="Room Type"
-                required
-              >
-                <MenuItem value="THEORY">{getRoomTypeLabel('THEORY')}</MenuItem>
-                <MenuItem value="LAB">{getRoomTypeLabel('LAB')}</MenuItem>
-                <MenuItem value="OTHER">{getRoomTypeLabel('OTHER')}</MenuItem>
-              </Select>
-              {errors.type && (
-                <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                  {errors.type}
-                </Typography>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="room_number">
+                Room Number <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="room_number"
+                value={formData.room_number}
+                onChange={(e) => handleChange('room_number', e.target.value)}
+                className={cn(errors.room_number && "border-destructive")}
+              />
+              {errors.room_number ? (
+                <p className="text-sm text-destructive">{errors.room_number}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">e.g., 101, L201</p>
               )}
-            </FormControl>
-          </Grid>
+            </div>
 
-          <Grid item xs={12}>
-            <FormControl fullWidth>
-              <InputLabel>Owner Department (Optional)</InputLabel>
-              <Select
-                value={formData.department_id || ''}
-                onChange={(e) => handleChange('department_id', e.target.value || null)}
-                label="Owner Department (Optional)"
-              >
-                <MenuItem value="">
-                  <em>None (Shared Room)</em>
-                </MenuItem>
-                {departments.map((dept) => (
-                  <MenuItem key={dept.id} value={dept.id}>
-                    {dept.name} ({dept.programme?.name || 'Programme'})
-                  </MenuItem>
-                ))}
-              </Select>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                Leave empty for shared rooms that can be used by any department
-              </Typography>
-            </FormControl>
-          </Grid>
+            <div className="space-y-2">
+              <Label htmlFor="capacity">
+                Capacity <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="capacity"
+                type="number"
+                value={formData.capacity}
+                onChange={(e) => handleChange('capacity', parseInt(e.target.value) || 0)}
+                min={1}
+                max={500}
+                className={cn(errors.capacity && "border-destructive")}
+              />
+              {errors.capacity ? (
+                <p className="text-sm text-destructive">{errors.capacity}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Number of students</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="type">
+              Room Type <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              id="type"
+              value={formData.type}
+              onChange={(e) => handleChange('type', e.target.value)}
+              className={cn(errors.type && "border-destructive")}
+            >
+              <option value="THEORY">{getRoomTypeLabel('THEORY')}</option>
+              <option value="LAB">{getRoomTypeLabel('LAB')}</option>
+              <option value="OTHER">{getRoomTypeLabel('OTHER')}</option>
+            </Select>
+            {errors.type && (
+              <p className="text-sm text-destructive">{errors.type}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="department">Owner Department (Optional)</Label>
+            <Select
+              id="department"
+              value={formData.department_id === null ? '' : String(formData.department_id)}
+              onChange={(e) => handleChange('department_id', e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">None (Shared Room)</option>
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name} ({dept.programme?.name || 'Programme'})
+                </option>
+              ))}
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Leave empty for shared rooms that can be used by any department
+            </p>
+          </div>
 
           {room && (
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.is_active}
-                    onChange={(e) => handleChange('is_active', e.target.checked)}
-                  />
-                }
-                label="Active"
-              />
-              <Typography variant="caption" color="text.secondary" display="block">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="active"
+                  checked={formData.is_active}
+                  onCheckedChange={(checked) => handleChange('is_active', checked)}
+                />
+                <Label htmlFor="active" className="cursor-pointer">
+                  Active
+                </Label>
+              </div>
+              <p className="text-sm text-muted-foreground">
                 Inactive rooms won't be available for scheduling
-              </Typography>
-            </Grid>
+              </p>
+            </div>
           )}
-        </Grid>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting ? 'Saving...' : (room ? 'Update' : 'Create')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={submitting}
-        >
-          {submitting ? 'Saving...' : (room ? 'Update' : 'Create')}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 };

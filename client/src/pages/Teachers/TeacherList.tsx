@@ -1,37 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  Tooltip,
-  TextField,
-  InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Avatar,
-} from '@mui/material';
-import {
-  Add,
-  Edit,
-  Delete,
-  Search,
-  Person,
-  Email,
-  School,
-} from '@mui/icons-material';
+import { Plus, Pencil, Trash2, Search, User, Mail, Building2 } from 'lucide-react';
 import { type Teacher, type Department } from '../../types/models';
 import { teacherService } from '../../services/teacherService';
 import { departmentService } from '../../services/departmentService';
@@ -39,6 +7,14 @@ import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import ErrorAlert from '../../components/Common/ErrorAlert';
 import ConfirmDialog from '../../components/Common/ConfirmDialog';
 import TeacherFormDialog from './TeacherFormDialog';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Select } from '../../components/ui/select';
+import { Badge } from '../../components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Tooltip } from '../../components/ui/tooltip';
+import { Avatar } from '../../components/ui/avatar';
 
 const TeacherList: React.FC = () => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -129,154 +105,134 @@ const TeacherList: React.FC = () => {
   if (error) return <ErrorAlert error={error} />;
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" gutterBottom fontWeight="bold">
-            Teachers
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Teachers</h1>
+          <p className="text-muted-foreground mt-1">
             Manage faculty members across departments
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={handleAdd}
-          size="large"
-        >
+          </p>
+        </div>
+        <Button onClick={handleAdd} size="lg">
+          <Plus className="mr-2 h-4 w-4" />
           Add Teacher
         </Button>
-      </Box>
+      </div>
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box display="flex" gap={2}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Search by name, email, or initials..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControl sx={{ minWidth: 200 }}>
-              <InputLabel>Department</InputLabel>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, or initials..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="w-[200px]">
               <Select
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value as number | '')}
-                label="Department"
+                value={selectedDepartment === '' ? '' : String(selectedDepartment)}
+                onChange={(e) => setSelectedDepartment(e.target.value === '' ? '' : Number(e.target.value))}
               >
-                <MenuItem value="">All Departments</MenuItem>
+                <option value="">All Departments</option>
                 {departments.map((dept) => (
-                  <MenuItem key={dept.id} value={dept.id}>
+                  <option key={dept.id} value={dept.id}>
                     {dept.name}
-                  </MenuItem>
+                  </option>
                 ))}
               </Select>
-            </FormControl>
-          </Box>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      <TableContainer component={Paper}>
+      <div className="rounded-md border">
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableCell>Teacher</TableCell>
-              <TableCell>Initials</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Department</TableCell>
-              <TableCell align="center">Status</TableCell>
-              <TableCell align="center">Actions</TableCell>
+              <TableHead>Teacher</TableHead>
+              <TableHead>Initials</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Department</TableHead>
+              <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {filteredTeachers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
-                  <Box py={4}>
-                    <Person sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-                    <Typography variant="body1" color="text.secondary">
-                      No teachers found
-                    </Typography>
-                  </Box>
+                <TableCell colSpan={6} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2">
+                    <User className="h-12 w-12 text-muted-foreground/50" />
+                    <p className="text-muted-foreground">No teachers found</p>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
               filteredTeachers.map((teacher) => (
-                <TableRow key={teacher.id} hover>
+                <TableRow key={teacher.id} className="hover:bg-muted/50">
                   <TableCell>
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
+                    <div className="flex items-center gap-3">
+                      <Avatar>
                         {getInitials(teacher.name)}
                       </Avatar>
-                      <Typography variant="subtitle2" fontWeight="medium">
-                        {teacher.name}
-                      </Typography>
-                    </Box>
+                      <span className="font-medium">{teacher.name}</span>
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={teacher.initials} 
-                      size="small" 
-                      variant="outlined"
-                      color="primary"
-                    />
+                    <Badge variant="outline" className="border-primary text-primary">
+                      {teacher.initials}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    <Box display="flex" alignItems="center" gap={0.5}>
-                      <Email fontSize="small" color="action" />
-                      <Typography variant="body2">{teacher.email}</Typography>
-                    </Box>
+                    <div className="flex items-center gap-1.5">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{teacher.email}</span>
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <Box display="flex" alignItems="center" gap={0.5}>
-                      <School fontSize="small" color="action" />
-                      <Typography variant="body2">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">
                         {departments.find(d => d.id === teacher.department_id)?.name || 'Unknown'}
-                      </Typography>
-                    </Box>
+                      </span>
+                    </div>
                   </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={teacher.is_active ? 'Active' : 'Inactive'}
-                      color={teacher.is_active ? 'success' : 'default'}
-                      size="small"
-                    />
+                  <TableCell className="text-center">
+                    <Badge variant={teacher.is_active ? "default" : "secondary"}>
+                      {teacher.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
                   </TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEdit(teacher)}
-                        color="primary"
-                      >
-                        <Edit />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => setDeleteDialog({ open: true, teacher })}
-                        color="error"
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Tooltip>
+                  <TableCell className="text-center">
+                    <div className="flex justify-center gap-1">
+                      <Tooltip content="Edit">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(teacher)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content="Delete">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteDialog({ open: true, teacher })}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </Tooltip>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </div>
 
       <TeacherFormDialog
         open={openForm}
@@ -295,7 +251,7 @@ const TeacherList: React.FC = () => {
         confirmText="Delete"
         confirmColor="error"
       />
-    </Box>
+    </div>
   );
 };
 

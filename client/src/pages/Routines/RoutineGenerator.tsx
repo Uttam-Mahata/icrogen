@@ -1,97 +1,66 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Alert,
-  CircularProgress,
-  Chip,
-  Paper,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Tabs,
-  Tab,
-  Stepper,
-  Step,
-  StepLabel,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Badge,
-  Tooltip,
-} from '@mui/material';
-import {
-  PlayArrow,
-  Schedule,
+  Play,
+  Clock,
   CheckCircle,
-  Cancel,
-  Visibility,
-  CalendarMonth,
-  Room,
-  Person,
-  School,
+  X as XIcon,
+  Eye,
+  Calendar,
+  DoorOpen,
+  User,
+  GraduationCap,
   Download,
-  Print,
-  ExpandMore,
-  Warning,
+  Printer,
+  ChevronDown,
+  AlertTriangle,
   Info,
-  Refresh,
+  RefreshCw,
   Save,
   History,
-} from '@mui/icons-material';
-import { 
-  type SemesterOffering, 
-  type ScheduleRun, 
+  Loader2,
+} from 'lucide-react';
+import {
+  type SemesterOffering,
+  type ScheduleRun,
   type ScheduleEntry,
-  type CourseOffering,
 } from '../../types/models';
 import { semesterOfferingService } from '../../services/semesterOfferingService';
 import { routineService, type GenerateRoutineRequest } from '../../services/routineService';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import ErrorAlert from '../../components/Common/ErrorAlert';
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`tabpanel-${index}`}
-      aria-labelledby={`tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../../components/ui/dialog';
+import { Alert } from '../../components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../components/ui/tooltip';
+import { cn } from '../../lib/utils';
 
 const RoutineGenerator: React.FC = () => {
   const [semesterOfferings, setSemesterOfferings] = useState<SemesterOffering[]>([]);
@@ -107,6 +76,7 @@ const RoutineGenerator: React.FC = () => {
   const [viewMode, setViewMode] = useState(0); // 0: By Day, 1: By Room, 2: By Teacher
   const [commitDialog, setCommitDialog] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
+  const [expandedCourses, setExpandedCourses] = useState(false);
 
   useEffect(() => {
     fetchSemesterOfferings();
@@ -124,9 +94,9 @@ const RoutineGenerator: React.FC = () => {
       setLoading(true);
       const data = await semesterOfferingService.getAll();
       // Filter only active semester offerings with course offerings
-      const activeOfferings = data.filter(o => 
-        o.status === 'ACTIVE' && 
-        o.course_offerings && 
+      const activeOfferings = data.filter(o =>
+        o.status === 'ACTIVE' &&
+        o.course_offerings &&
         o.course_offerings.length > 0
       );
       setSemesterOfferings(activeOfferings);
@@ -149,7 +119,7 @@ const RoutineGenerator: React.FC = () => {
   const fetchScheduleRuns = async (offeringId: number) => {
     try {
       const runs = await routineService.getScheduleRunsBySemesterOffering(offeringId);
-      setScheduleRuns(runs.sort((a, b) => 
+      setScheduleRuns(runs.sort((a, b) =>
         new Date(b.generated_at).getTime() - new Date(a.generated_at).getTime()
       ));
     } catch (err) {
@@ -241,18 +211,18 @@ const RoutineGenerator: React.FC = () => {
 
   const handleExportCSV = () => {
     if (scheduleEntries.length === 0) return;
-    
+
     const filename = `schedule_${selectedOfferingData?.programme?.name}_${selectedOfferingData?.department?.name}_Sem${selectedOfferingData?.semester_number}_${new Date().toISOString().split('T')[0]}.csv`;
-    
+
     let csv = 'Day,Time Slot,Subject Code,Subject Name,Teacher,Room,Type\n';
-    
+
     const sortedEntries = [...scheduleEntries].sort((a, b) => {
       if (a.day_of_week !== b.day_of_week) {
         return a.day_of_week - b.day_of_week;
       }
       return a.slot_number - b.slot_number;
     });
-    
+
     sortedEntries.forEach(entry => {
       const timeSlot = routineService.formatTimeSlot(entry.day_of_week, entry.slot_number);
       const [day, time] = timeSlot.split(' ');
@@ -261,18 +231,18 @@ const RoutineGenerator: React.FC = () => {
       const teacher = entry.teacher?.name || 'N/A';
       const room = entry.room?.name || 'N/A';
       const type = entry.course_offering?.is_lab ? 'Lab' : 'Theory';
-      
+
       csv += `"${day}","${time}","${subjectCode}","${subjectName}","${teacher}","${room}","${type}"\n`;
     });
-    
+
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    
+
     link.setAttribute('href', url);
     link.setAttribute('download', filename);
     link.style.visibility = 'hidden';
-    
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -288,78 +258,65 @@ const RoutineGenerator: React.FC = () => {
     const timeSlots = [1, 2, 3, 4, 'break', 5, 6, 7]; // Include break explicitly
 
     return (
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
+      <div className="border rounded-lg overflow-hidden">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', minWidth: 100 }}>Time</TableCell>
+              <TableHead className="font-bold min-w-[100px]">Time</TableHead>
               {days.map((day, index) => (
-                <TableCell key={index} align="center" sx={{ fontWeight: 'bold' }}>
+                <TableHead key={index} className="text-center font-bold">
                   {day}
-                </TableCell>
+                </TableHead>
               ))}
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {timeSlots.map((slot) => {
               if (slot === 'break') {
                 return (
                   <TableRow key="break">
-                    <TableCell sx={{ bgcolor: 'grey.100', fontWeight: 'bold' }}>
+                    <TableCell className="bg-gray-100 font-bold">
                       12:40-13:50
                     </TableCell>
                     {days.map((_, index) => (
-                      <TableCell key={index} align="center" sx={{ bgcolor: 'grey.100' }}>
-                        <Typography variant="caption" color="text.secondary">
-                          LUNCH BREAK
-                        </Typography>
+                      <TableCell key={index} className="text-center bg-gray-100">
+                        <span className="text-xs text-gray-500">LUNCH BREAK</span>
                       </TableCell>
                     ))}
                   </TableRow>
                 );
               }
-              
+
               const slotNum = slot as number;
               const timeRange = routineService.formatTimeSlot(1, slotNum).split(' ')[1];
 
               return (
                 <TableRow key={slotNum}>
-                  <TableCell sx={{ fontWeight: 'medium' }}>{timeRange}</TableCell>
+                  <TableCell className="font-medium">{timeRange}</TableCell>
                   {days.map((_, dayIndex) => {
                     const dayEntries = entriesByDay.get(dayIndex + 1) || [];
                     const entry = dayEntries.find(e => e.slot_number === slotNum);
-                    
+
                     if (!entry) {
-                      return <TableCell key={dayIndex} align="center" />;
+                      return <TableCell key={dayIndex} className="text-center" />;
                     }
 
                     const isLab = entry.course_offering?.is_lab;
-                    const bgColor = isLab ? 'info.light' : 'primary.light';
-                    
+                    const bgColor = isLab ? 'bg-blue-100' : 'bg-purple-100';
+
                     return (
-                      <TableCell key={dayIndex} align="center" sx={{ p: 0.5 }}>
-                        <Paper 
-                          elevation={2} 
-                          sx={{ 
-                            p: 1, 
-                            bgcolor: bgColor, 
-                            color: 'white',
-                            minHeight: 60,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center'
-                          }}
-                        >
-                          <Typography variant="caption" display="block" fontWeight="bold">
+                      <TableCell key={dayIndex} className="text-center p-1">
+                        <div className={cn('p-2 rounded min-h-[60px] flex flex-col justify-center', bgColor)}>
+                          <p className="text-xs font-bold">
                             {entry.course_offering?.subject?.code}
-                          </Typography>
-                          <Typography variant="caption" display="block">
+                          </p>
+                          <p className="text-xs">
                             {entry.room?.name}
-                          </Typography>
-                          <Typography variant="caption">
+                          </p>
+                          <p className="text-xs">
                             {entry.teacher?.initials || entry.teacher?.name}
-                          </Typography>
-                        </Paper>
+                          </p>
+                        </div>
                       </TableCell>
                     );
                   })}
@@ -368,7 +325,7 @@ const RoutineGenerator: React.FC = () => {
             })}
           </TableBody>
         </Table>
-      </TableContainer>
+      </div>
     );
   };
 
@@ -376,47 +333,42 @@ const RoutineGenerator: React.FC = () => {
     const entriesByRoom = routineService.groupEntriesByRoom(scheduleEntries);
 
     return (
-      <Grid container spacing={2}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {Array.from(entriesByRoom.entries()).map(([roomId, entries]) => {
           const room = entries[0]?.room;
           return (
-            <Grid item xs={12} md={6} key={roomId}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    <Room fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
+            <Card key={roomId}>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <DoorOpen className="h-5 w-5 text-blue-600" />
+                  <h3 className="text-lg font-semibold">
                     {room?.name} ({room?.type})
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" gutterBottom>
-                    Capacity: {room?.capacity || 'N/A'}
-                  </Typography>
-                  <Divider sx={{ my: 1 }} />
-                  <List dense>
-                    {entries.map((entry, index) => (
-                      <ListItem key={index}>
-                        <ListItemText
-                          primary={`${routineService.formatTimeSlot(entry.day_of_week, entry.slot_number)}`}
-                          secondary={
-                            <React.Fragment>
-                              <Typography variant="caption" component="span">
-                                {entry.course_offering?.subject?.code} - {entry.course_offering?.subject?.name}
-                              </Typography>
-                              <br />
-                              <Typography variant="caption" component="span">
-                                Teacher: {entry.teacher?.name}
-                              </Typography>
-                            </React.Fragment>
-                          }
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </CardContent>
-              </Card>
-            </Grid>
+                  </h3>
+                </div>
+                <p className="text-sm text-gray-500 mb-4">
+                  Capacity: {room?.capacity || 'N/A'}
+                </p>
+                <hr className="my-2" />
+                <div className="space-y-2">
+                  {entries.map((entry, index) => (
+                    <div key={index} className="border-b pb-2">
+                      <p className="text-sm font-medium">
+                        {routineService.formatTimeSlot(entry.day_of_week, entry.slot_number)}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {entry.course_offering?.subject?.code} - {entry.course_offering?.subject?.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Teacher: {entry.teacher?.name}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           );
         })}
-      </Grid>
+      </div>
     );
   };
 
@@ -424,66 +376,59 @@ const RoutineGenerator: React.FC = () => {
     const entriesByTeacher = routineService.groupEntriesByTeacher(scheduleEntries);
 
     return (
-      <Grid container spacing={2}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {Array.from(entriesByTeacher.entries()).map(([teacherId, entries]) => {
           const teacher = entries[0]?.teacher;
           const totalHours = entries.length;
-          
+
           return (
-            <Grid item xs={12} md={6} key={teacherId}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="center">
-                    <Typography variant="h6" gutterBottom>
-                      <Person fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
+            <Card key={teacherId}>
+              <CardContent className="pt-6">
+                <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center gap-2">
+                    <User className="h-5 w-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold">
                       {teacher?.name}
-                    </Typography>
-                    <Chip 
-                      label={`${totalHours} hours/week`} 
-                      size="small" 
-                      color="primary"
-                    />
-                  </Box>
-                  <Typography variant="caption" color="text.secondary" gutterBottom>
-                    Department: {teacher?.department?.name || 'N/A'}
-                  </Typography>
-                  <Divider sx={{ my: 1 }} />
-                  <List dense>
-                    {entries.map((entry, index) => (
-                      <ListItem key={index}>
-                        <ListItemText
-                          primary={`${routineService.formatTimeSlot(entry.day_of_week, entry.slot_number)}`}
-                          secondary={
-                            <React.Fragment>
-                              <Typography variant="caption" component="span">
-                                {entry.course_offering?.subject?.code} - {entry.course_offering?.subject?.name}
-                              </Typography>
-                              <br />
-                              <Typography variant="caption" component="span">
-                                Room: {entry.room?.name}
-                              </Typography>
-                            </React.Fragment>
-                          }
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </CardContent>
-              </Card>
-            </Grid>
+                    </h3>
+                  </div>
+                  <Badge className="bg-blue-500">
+                    {totalHours} hours/week
+                  </Badge>
+                </div>
+                <p className="text-sm text-gray-500 mb-4">
+                  Department: {teacher?.department?.name || 'N/A'}
+                </p>
+                <hr className="my-2" />
+                <div className="space-y-2">
+                  {entries.map((entry, index) => (
+                    <div key={index} className="border-b pb-2">
+                      <p className="text-sm font-medium">
+                        {routineService.formatTimeSlot(entry.day_of_week, entry.slot_number)}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {entry.course_offering?.subject?.code} - {entry.course_offering?.subject?.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Room: {entry.room?.name}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           );
         })}
-      </Grid>
+      </div>
     );
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): 'default' | 'secondary' | 'destructive' => {
     switch (status) {
-      case 'DRAFT': return 'warning';
-      case 'COMMITTED': return 'success';
-      case 'FAILED': return 'error';
-      case 'CANCELLED': return 'default';
-      default: return 'default';
+      case 'DRAFT': return 'secondary';
+      case 'COMMITTED': return 'default';
+      case 'FAILED': return 'destructive';
+      case 'CANCELLED': return 'secondary';
+      default: return 'secondary';
     }
   };
 
@@ -492,305 +437,354 @@ const RoutineGenerator: React.FC = () => {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <Box>
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h5" component="h2" gutterBottom>
-            Routine Generator
-          </Typography>
-          
-          <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
-            {steps.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="pt-6">
+          <h2 className="text-2xl font-bold mb-6">Routine Generator</h2>
+
+          {/* Stepper */}
+          <div className="flex items-center justify-between mb-6">
+            {steps.map((label, index) => (
+              <div key={label} className="flex items-center flex-1">
+                <div className="flex flex-col items-center">
+                  <div
+                    className={cn(
+                      'w-10 h-10 rounded-full flex items-center justify-center border-2',
+                      activeStep >= index
+                        ? 'bg-blue-500 border-blue-500 text-white'
+                        : 'bg-white border-gray-300 text-gray-500'
+                    )}
+                  >
+                    {activeStep > index ? (
+                      <CheckCircle className="h-5 w-5" />
+                    ) : (
+                      <span className="text-sm font-medium">{index + 1}</span>
+                    )}
+                  </div>
+                  <p className="text-xs mt-2">{label}</p>
+                </div>
+                {index < steps.length - 1 && (
+                  <div
+                    className={cn(
+                      'flex-1 h-0.5 mx-4',
+                      activeStep > index ? 'bg-blue-500' : 'bg-gray-300'
+                    )}
+                  />
+                )}
+              </div>
             ))}
-          </Stepper>
+          </div>
 
           {activeStep === 0 && (
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel>Select Semester Offering</InputLabel>
-                  <Select
-                    value={selectedOffering}
-                    onChange={(e) => setSelectedOffering(e.target.value as number | '')}
-                    label="Select Semester Offering"
-                  >
-                    <MenuItem value="">Select an offering</MenuItem>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Select Semester Offering</label>
+                <Select
+                  value={selectedOffering.toString()}
+                  onValueChange={(value) => setSelectedOffering(value === '' ? '' : Number(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an offering" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Select an offering</SelectItem>
                     {semesterOfferings.map((offering) => (
-                      <MenuItem key={offering.id} value={offering.id}>
-                        {offering.programme?.name} - {offering.department?.name} - 
+                      <SelectItem key={offering.id} value={offering.id.toString()}>
+                        {offering.programme?.name} - {offering.department?.name} -
                         Semester {offering.semester_number} ({offering.session?.name} {offering.session?.academic_year})
-                        <Chip 
-                          label={`${offering.course_offerings?.length || 0} courses`}
-                          size="small"
-                          sx={{ ml: 1 }}
-                        />
-                      </MenuItem>
+                        <Badge variant="outline" className="ml-2">
+                          {offering.course_offerings?.length || 0} courses
+                        </Badge>
+                      </SelectItem>
                     ))}
-                  </Select>
-                </FormControl>
-              </Grid>
+                  </SelectContent>
+                </Select>
+              </div>
 
               {selectedOfferingData && (
-                <Grid item xs={12}>
-                  <Accordion defaultExpanded>
-                    <AccordionSummary expandIcon={<ExpandMore />}>
-                      <Typography>Course Offerings Summary</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Grid container spacing={2}>
-                        {selectedOfferingData.course_offerings?.map((course) => (
-                          <Grid item xs={12} sm={6} md={4} key={course.id}>
-                            <Paper sx={{ p: 2 }}>
-                              <Typography variant="subtitle2" gutterBottom>
-                                {course.subject?.code} - {course.subject?.name}
-                              </Typography>
-                              <Typography variant="caption" display="block">
-                                Credits: {course.subject?.credit}
-                              </Typography>
-                              <Typography variant="caption" display="block">
-                                Weekly Slots: {course.weekly_required_slots}
-                              </Typography>
-                              <Typography variant="caption" display="block">
-                                Type: {course.is_lab ? 'Lab' : 'Theory'}
-                              </Typography>
-                              {course.teacher_assignments && course.teacher_assignments.length > 0 && (
-                                <Typography variant="caption" display="block" color="primary">
-                                  Teachers: {course.teacher_assignments.map(ta => ta.teacher?.initials).join(', ')}
-                                </Typography>
-                              )}
-                              {course.room_assignments && course.room_assignments.length > 0 && (
-                                <Typography variant="caption" display="block" color="secondary">
-                                  Rooms: {course.room_assignments.map(ra => ra.room?.name).join(', ')}
-                                </Typography>
-                              )}
-                            </Paper>
-                          </Grid>
-                        ))}
-                      </Grid>
-                    </AccordionDetails>
-                  </Accordion>
-                </Grid>
+                <div>
+                  <button
+                    onClick={() => setExpandedCourses(!expandedCourses)}
+                    className="flex items-center justify-between w-full p-4 border rounded-lg hover:bg-gray-50"
+                  >
+                    <span className="font-medium">Course Offerings Summary</span>
+                    <ChevronDown className={cn('h-5 w-5 transition-transform', expandedCourses && 'transform rotate-180')} />
+                  </button>
+                  {expandedCourses && (
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {selectedOfferingData.course_offerings?.map((course) => (
+                        <div key={course.id} className="border rounded-lg p-4">
+                          <p className="font-medium text-sm mb-2">
+                            {course.subject?.code} - {course.subject?.name}
+                          </p>
+                          <p className="text-xs text-gray-600">Credits: {course.subject?.credit}</p>
+                          <p className="text-xs text-gray-600">Weekly Slots: {course.weekly_required_slots}</p>
+                          <p className="text-xs text-gray-600">Type: {course.is_lab ? 'Lab' : 'Theory'}</p>
+                          {course.teacher_assignments && course.teacher_assignments.length > 0 && (
+                            <p className="text-xs text-blue-600 mt-1">
+                              Teachers: {course.teacher_assignments.map(ta => ta.teacher?.initials).join(', ')}
+                            </p>
+                          )}
+                          {course.room_assignments && course.room_assignments.length > 0 && (
+                            <p className="text-xs text-purple-600">
+                              Rooms: {course.room_assignments.map(ra => ra.room?.name).join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
 
-              <Grid item xs={12}>
-                <Box display="flex" justifyContent="center" gap={2}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    size="large"
-                    startIcon={generating ? <CircularProgress size={20} color="inherit" /> : <PlayArrow />}
-                    onClick={handleGenerateRoutine}
-                    disabled={!selectedOffering || generating}
-                  >
-                    {generating ? 'Generating...' : 'Generate Routine'}
-                  </Button>
-                </Box>
-              </Grid>
-            </Grid>
+              <div className="flex justify-center pt-4">
+                <Button
+                  size="lg"
+                  onClick={handleGenerateRoutine}
+                  disabled={!selectedOffering || generating}
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-5 w-5" />
+                      Generate Routine
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {error && <ErrorAlert message={error} />}
       {success && (
-        <Alert severity="success" onClose={() => setSuccess(null)} sx={{ mb: 2 }}>
-          {success}
+        <Alert className="bg-green-50 border-green-200">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <span className="ml-2 text-green-800">{success}</span>
         </Alert>
       )}
 
       {scheduleRuns.length > 0 && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              <History sx={{ mr: 1, verticalAlign: 'middle' }} />
-              Previous Schedule Runs
-            </Typography>
-            <List>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <History className="h-5 w-5" />
+              <h3 className="text-lg font-semibold">Previous Schedule Runs</h3>
+            </div>
+            <div className="space-y-2">
               {scheduleRuns.slice(0, 5).map((run) => (
-                <ListItem
+                <div
                   key={run.id}
-                  secondaryAction={
-                    <Box>
-                      <Tooltip title="View Schedule">
-                        <IconButton
-                          onClick={() => handleViewSchedule(run)}
-                          color="primary"
-                        >
-                          <Visibility />
-                        </IconButton>
-                      </Tooltip>
-                      {run.status === 'DRAFT' && (
-                        <>
-                          <Tooltip title="Commit Schedule">
-                            <IconButton
-                              onClick={() => {
-                                setCurrentSchedule(run);
-                                setCommitDialog(true);
-                              }}
-                              color="success"
-                            >
-                              <Save />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Cancel Schedule">
-                            <IconButton
-                              onClick={() => handleCancelSchedule(run.id)}
-                              color="error"
-                            >
-                              <Cancel />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                    </Box>
-                  }
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
                 >
-                  <ListItemText
-                    primary={`Run #${run.id} - ${new Date(run.generated_at).toLocaleString()}`}
-                    secondary={
-                      <Box display="flex" gap={1} alignItems="center">
-                        <Chip
-                          label={run.status}
-                          size="small"
-                          color={getStatusColor(run.status)}
-                        />
-                        {run.committed_at && (
-                          <Typography variant="caption">
-                            Committed: {new Date(run.committed_at).toLocaleString()}
-                          </Typography>
-                        )}
-                      </Box>
-                    }
-                  />
-                </ListItem>
+                  <div>
+                    <p className="font-medium text-sm">
+                      Run #{run.id} - {new Date(run.generated_at).toLocaleString()}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant={getStatusColor(run.status)}>
+                        {run.status}
+                      </Badge>
+                      {run.committed_at && (
+                        <span className="text-xs text-gray-500">
+                          Committed: {new Date(run.committed_at).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewSchedule(run)}
+                          >
+                            <Eye className="h-4 w-4 text-blue-600" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>View Schedule</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    {run.status === 'DRAFT' && (
+                      <>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setCurrentSchedule(run);
+                                  setCommitDialog(true);
+                                }}
+                              >
+                                <Save className="h-4 w-4 text-green-600" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Commit Schedule</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCancelSchedule(run.id)}
+                              >
+                                <XIcon className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Cancel Schedule</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </>
+                    )}
+                  </div>
+                </div>
               ))}
-            </List>
+            </div>
           </CardContent>
         </Card>
       )}
 
       {currentSchedule && scheduleEntries.length > 0 && (
         <Card>
-          <CardContent>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">
-                Generated Schedule
+          <CardContent className="pt-6">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold">Generated Schedule</h3>
                 {currentSchedule.status === 'COMMITTED' && (
-                  <Chip 
-                    label="COMMITTED" 
-                    size="small" 
-                    color="success" 
-                    sx={{ ml: 2 }}
-                  />
+                  <Badge variant="default">COMMITTED</Badge>
                 )}
-              </Typography>
-              <Box display="flex" gap={1}>
-                <Button 
-                  startIcon={<Download />} 
-                  variant="outlined"
-                  onClick={handleExportCSV}
-                >
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleExportCSV}>
+                  <Download className="mr-2 h-4 w-4" />
                   Export CSV
                 </Button>
-                <Button 
-                  startIcon={<Print />} 
-                  variant="outlined"
-                  onClick={handlePrint}
-                >
+                <Button variant="outline" onClick={handlePrint}>
+                  <Printer className="mr-2 h-4 w-4" />
                   Print
                 </Button>
                 {currentSchedule.status === 'DRAFT' && (
-                  <Button
-                    startIcon={<CheckCircle />}
-                    variant="contained"
-                    color="success"
-                    onClick={() => setCommitDialog(true)}
-                  >
+                  <Button onClick={() => setCommitDialog(true)}>
+                    <CheckCircle className="mr-2 h-4 w-4" />
                     Commit Schedule
                   </Button>
                 )}
-              </Box>
-            </Box>
+              </div>
+            </div>
 
-            <Tabs value={viewMode} onChange={(_, value) => setViewMode(value)}>
-              <Tab label="By Day" icon={<CalendarMonth />} iconPosition="start" />
-              <Tab label="By Room" icon={<Room />} iconPosition="start" />
-              <Tab label="By Teacher" icon={<Person />} iconPosition="start" />
-            </Tabs>
+            {/* Tabs */}
+            <div className="flex gap-2 border-b mb-4">
+              <button
+                onClick={() => setViewMode(0)}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 border-b-2 transition-colors',
+                  viewMode === 0
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                )}
+              >
+                <Calendar className="h-4 w-4" />
+                By Day
+              </button>
+              <button
+                onClick={() => setViewMode(1)}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 border-b-2 transition-colors',
+                  viewMode === 1
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                )}
+              >
+                <DoorOpen className="h-4 w-4" />
+                By Room
+              </button>
+              <button
+                onClick={() => setViewMode(2)}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 border-b-2 transition-colors',
+                  viewMode === 2
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                )}
+              >
+                <User className="h-4 w-4" />
+                By Teacher
+              </button>
+            </div>
 
-            <TabPanel value={viewMode} index={0}>
-              {renderScheduleByDay()}
-            </TabPanel>
-            <TabPanel value={viewMode} index={1}>
-              {renderScheduleByRoom()}
-            </TabPanel>
-            <TabPanel value={viewMode} index={2}>
-              {renderScheduleByTeacher()}
-            </TabPanel>
+            <div className="mt-4">
+              {viewMode === 0 && renderScheduleByDay()}
+              {viewMode === 1 && renderScheduleByRoom()}
+              {viewMode === 2 && renderScheduleByTeacher()}
+            </div>
 
             {currentSchedule.meta && (
-              <Box mt={3}>
-                <Alert severity="info" icon={<Info />}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Generation Report
-                  </Typography>
+              <Alert className="mt-4">
+                <Info className="h-4 w-4" />
+                <div className="ml-2">
+                  <p className="font-medium text-sm mb-2">Generation Report</p>
                   {currentSchedule.meta.total_blocks && (
-                    <Typography variant="caption" display="block">
-                      Total Blocks: {currentSchedule.meta.total_blocks}
-                    </Typography>
+                    <p className="text-xs">Total Blocks: {currentSchedule.meta.total_blocks}</p>
                   )}
                   {currentSchedule.meta.placed_blocks && (
-                    <Typography variant="caption" display="block">
-                      Placed Blocks: {currentSchedule.meta.placed_blocks}
-                    </Typography>
+                    <p className="text-xs">Placed Blocks: {currentSchedule.meta.placed_blocks}</p>
                   )}
                   {currentSchedule.meta.unplaced_blocks > 0 && (
-                    <Typography variant="caption" display="block" color="error">
-                      Unplaced Blocks: {currentSchedule.meta.unplaced_blocks}
-                    </Typography>
+                    <p className="text-xs text-red-600">Unplaced Blocks: {currentSchedule.meta.unplaced_blocks}</p>
                   )}
                   {currentSchedule.meta.conflicts && currentSchedule.meta.conflicts.length > 0 && (
                     <>
-                      <Typography variant="caption" display="block" color="error">
-                        Conflicts:
-                      </Typography>
+                      <p className="text-xs text-red-600 mt-2">Conflicts:</p>
                       {currentSchedule.meta.conflicts.map((conflict: string, index: number) => (
-                        <Typography key={index} variant="caption" display="block" sx={{ pl: 2 }}>
-                          • {conflict}
-                        </Typography>
+                        <p key={index} className="text-xs pl-4">• {conflict}</p>
                       ))}
                     </>
                   )}
-                </Alert>
-              </Box>
+                </div>
+              </Alert>
             )}
           </CardContent>
         </Card>
       )}
 
       {/* Commit Dialog */}
-      <Dialog open={commitDialog} onClose={() => setCommitDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Commit Schedule</DialogTitle>
+      <Dialog open={commitDialog} onOpenChange={setCommitDialog}>
         <DialogContent>
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Once committed, this schedule will be finalized and cannot be modified.
-            All assigned teachers and rooms will be permanently booked for these time slots.
+          <DialogHeader>
+            <DialogTitle>Commit Schedule</DialogTitle>
+          </DialogHeader>
+          <Alert variant="destructive" className="bg-yellow-50 border-yellow-200">
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+            <div className="ml-2">
+              <p className="text-sm text-yellow-800">
+                Once committed, this schedule will be finalized and cannot be modified.
+                All assigned teachers and rooms will be permanently booked for these time slots.
+              </p>
+            </div>
           </Alert>
-          <Typography variant="body2">
-            Are you sure you want to commit this schedule?
-          </Typography>
+          <p className="text-sm">Are you sure you want to commit this schedule?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCommitDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCommitSchedule}>
+              Commit Schedule
+            </Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCommitDialog(false)}>Cancel</Button>
-          <Button onClick={handleCommitSchedule} variant="contained" color="success">
-            Commit Schedule
-          </Button>
-        </DialogActions>
       </Dialog>
-    </Box>
+    </div>
   );
 };
 

@@ -1,34 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Box,
-  CssBaseline,
-  AppBar,
-  Toolbar,
-  Typography,
-  Drawer,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Divider,
-  useTheme,
-  useMediaQuery,
-} from '@mui/material';
-import {
-  Menu as MenuIcon,
-  School,
-  Business,
-  Person,
-  Book,
-  MeetingRoom,
-  Schedule,
-  Dashboard,
-  CalendarMonth,
-  Assignment,
-} from '@mui/icons-material';
+  Menu,
+  GraduationCap,
+  Building2,
+  Users,
+  BookOpen,
+  DoorOpen,
+  Calendar,
+  LayoutDashboard,
+  CalendarDays,
+  ClipboardList,
+} from 'lucide-react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const drawerWidth = 240;
 
@@ -39,135 +25,99 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { text: 'Dashboard', icon: <Dashboard />, path: '/' },
-  { text: 'Programmes', icon: <School />, path: '/programmes' },
-  { text: 'Departments', icon: <Business />, path: '/departments' },
-  { text: 'Teachers', icon: <Person />, path: '/teachers' },
-  { text: 'Subjects', icon: <Book />, path: '/subjects' },
-  { text: 'Rooms', icon: <MeetingRoom />, path: '/rooms' },
-  { text: 'Sessions', icon: <CalendarMonth />, path: '/sessions' },
-  { text: 'Semester Offerings', icon: <Assignment />, path: '/semester-offerings' },
-  { text: 'Routine Generator', icon: <Schedule />, path: '/routines' },
+  { text: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" />, path: '/' },
+  { text: 'Programmes', icon: <GraduationCap className="h-5 w-5" />, path: '/programmes' },
+  { text: 'Departments', icon: <Building2 className="h-5 w-5" />, path: '/departments' },
+  { text: 'Teachers', icon: <Users className="h-5 w-5" />, path: '/teachers' },
+  { text: 'Subjects', icon: <BookOpen className="h-5 w-5" />, path: '/subjects' },
+  { text: 'Rooms', icon: <DoorOpen className="h-5 w-5" />, path: '/rooms' },
+  { text: 'Sessions', icon: <CalendarDays className="h-5 w-5" />, path: '/sessions' },
+  { text: 'Semester Offerings', icon: <ClipboardList className="h-5 w-5" />, path: '/semester-offerings' },
+  { text: 'Routine Generator', icon: <Calendar className="h-5 w-5" />, path: '/routines' },
 ];
 
 const MainLayout: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [isMobile, setIsMobile] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
   const drawer = (
-    <div>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold' }}>
-          ICRoGen
-        </Typography>
-      </Toolbar>
-      <Divider />
-      <List>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => {
-                navigate(item.path);
-                if (isMobile) {
-                  setMobileOpen(false);
-                }
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  color: location.pathname === item.path ? 'primary.main' : 'inherit',
+    <div className="h-full flex flex-col">
+      <div className="flex items-center h-16 px-6 border-b">
+        <h1 className="text-xl font-bold">ICRoGen</h1>
+      </div>
+      <nav className="flex-1 overflow-y-auto py-4">
+        <ul className="space-y-1 px-3">
+          {menuItems.map((item) => (
+            <li key={item.text}>
+              <button
+                onClick={() => {
+                  navigate(item.path);
+                  if (isMobile) {
+                    setMobileOpen(false);
+                  }
                 }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  location.pathname === item.path
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                )}
               >
                 {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
+                <span>{item.text}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </div>
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <CssBaseline />
-      <AppBar
-        position="fixed"
-        sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            IIEST Central Routine Generator
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-      >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true,
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-            },
-          }}
+    <div className="flex h-screen">
+      <header className="fixed top-0 left-0 right-0 z-40 flex items-center h-16 px-4 border-b bg-background sm:left-60">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleDrawerToggle}
+          className="sm:hidden mr-2"
         >
+          <Menu className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-semibold">IIEST Central Routine Generator</h1>
+      </header>
+
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" onClose={() => setMobileOpen(false)} className="p-0 w-60">
           {drawer}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-            },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-        }}
-      >
-        <Toolbar />
-        <Outlet />
-      </Box>
-    </Box>
+        </SheetContent>
+      </Sheet>
+
+      <aside className="hidden sm:block fixed left-0 top-0 h-full w-60 border-r bg-background">
+        {drawer}
+      </aside>
+
+      <main className="flex-1 overflow-y-auto pt-16 sm:ml-60">
+        <div className="p-6">
+          <Outlet />
+        </div>
+      </main>
+    </div>
   );
 };
 

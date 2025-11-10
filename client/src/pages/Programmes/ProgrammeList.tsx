@@ -1,31 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  Tooltip,
-  TextField,
-  InputAdornment,
-} from '@mui/material';
-import {
-  Add,
-  Edit,
-  Delete,
-  Visibility,
-  Search,
-  School,
-} from '@mui/icons-material';
+import { Plus, Pencil, Trash2, Eye, Search, GraduationCap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { type Programme } from '../../types/models';
 import { programmeService } from '../../services/programmeService';
@@ -33,6 +7,12 @@ import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import ErrorAlert from '../../components/Common/ErrorAlert';
 import ConfirmDialog from '../../components/Common/ConfirmDialog';
 import ProgrammeFormDialog from './ProgrammeFormDialog';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Badge } from '../../components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Tooltip } from '../../components/ui/tooltip';
 
 const ProgrammeList: React.FC = () => {
   const [programmes, setProgrammes] = useState<Programme[]>([]);
@@ -109,120 +89,105 @@ const ProgrammeList: React.FC = () => {
   if (error) return <ErrorAlert error={error} />;
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" gutterBottom fontWeight="bold">
-            Programmes
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Programmes</h1>
+          <p className="text-muted-foreground mt-1">
             Manage academic programmes and their configurations
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={handleAdd}
-          size="large"
-        >
+          </p>
+        </div>
+        <Button onClick={handleAdd} size="lg">
+          <Plus className="mr-2 h-4 w-4" />
           Add Programme
         </Button>
-      </Box>
+      </div>
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Search programmes..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              ),
-            }}
-          />
+      <Card>
+        <CardContent className="pt-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search programmes..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
         </CardContent>
       </Card>
 
-      <TableContainer component={Paper}>
+      <div className="rounded-md border">
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell align="center">Duration (Years)</TableCell>
-              <TableCell align="center">Total Semesters</TableCell>
-              <TableCell align="center">Status</TableCell>
-              <TableCell align="center">Actions</TableCell>
+              <TableHead>Name</TableHead>
+              <TableHead className="text-center">Duration (Years)</TableHead>
+              <TableHead className="text-center">Total Semesters</TableHead>
+              <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {filteredProgrammes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
-                  <Box py={4}>
-                    <School sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-                    <Typography variant="body1" color="text.secondary">
-                      No programmes found
-                    </Typography>
-                  </Box>
+                <TableCell colSpan={5} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2">
+                    <GraduationCap className="h-12 w-12 text-muted-foreground/50" />
+                    <p className="text-muted-foreground">No programmes found</p>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
               filteredProgrammes.map((programme) => (
-                <TableRow key={programme.id} hover>
+                <TableRow key={programme.id} className="hover:bg-muted/50">
                   <TableCell>
-                    <Typography variant="subtitle2" fontWeight="medium">
-                      {programme.name}
-                    </Typography>
+                    <span className="font-medium">{programme.name}</span>
                   </TableCell>
-                  <TableCell align="center">{programme.duration_years}</TableCell>
-                  <TableCell align="center">{programme.total_semesters}</TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={programme.is_active ? 'Active' : 'Inactive'}
-                      color={programme.is_active ? 'success' : 'default'}
-                      size="small"
-                    />
+                  <TableCell className="text-center">{programme.duration_years}</TableCell>
+                  <TableCell className="text-center">{programme.total_semesters}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant={programme.is_active ? "default" : "secondary"}>
+                      {programme.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
                   </TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="View Details">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleView(programme)}
-                        color="info"
-                      >
-                        <Visibility />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEdit(programme)}
-                        color="primary"
-                      >
-                        <Edit />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => setDeleteDialog({ open: true, programme })}
-                        color="error"
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Tooltip>
+                  <TableCell className="text-center">
+                    <div className="flex justify-center gap-1">
+                      <Tooltip content="View Details">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleView(programme)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content="Edit">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(programme)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content="Delete">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteDialog({ open: true, programme })}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </Tooltip>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </div>
 
       <ProgrammeFormDialog
         open={openForm}
@@ -240,7 +205,7 @@ const ProgrammeList: React.FC = () => {
         confirmText="Delete"
         confirmColor="error"
       />
-    </Box>
+    </div>
   );
 };
 

@@ -1,38 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  Tooltip,
-  TextField,
-  InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Stack,
-} from '@mui/material';
-import {
-  Add,
-  Edit,
-  Delete,
-  Search,
-  Book,
-  Science,
-  School,
-  Business,
-} from '@mui/icons-material';
+import { Plus, Pencil, Trash2, Search, BookOpen, FlaskConical, Building2 } from 'lucide-react';
 import { type Subject, type Department, type Programme, type SubjectType } from '../../types/models';
 import { subjectService } from '../../services/subjectService';
 import { departmentService } from '../../services/departmentService';
@@ -41,6 +8,13 @@ import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import ErrorAlert from '../../components/Common/ErrorAlert';
 import ConfirmDialog from '../../components/Common/ConfirmDialog';
 import SubjectFormDialog from './SubjectFormDialog';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Select } from '../../components/ui/select';
+import { Badge } from '../../components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Tooltip } from '../../components/ui/tooltip';
 
 const SubjectList: React.FC = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -137,182 +111,154 @@ const SubjectList: React.FC = () => {
   if (error) return <ErrorAlert error={error} />;
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" gutterBottom fontWeight="bold">
-            Subjects
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Subjects</h1>
+          <p className="text-muted-foreground mt-1">
             Manage course subjects across departments
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={handleAdd}
-          size="large"
-        >
+          </p>
+        </div>
+        <Button onClick={handleAdd} size="lg">
+          <Plus className="mr-2 h-4 w-4" />
           Add Subject
         </Button>
-      </Box>
+      </div>
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box display="flex" gap={2}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Search by name or code..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControl sx={{ minWidth: 200 }}>
-              <InputLabel>Department</InputLabel>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or code..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="w-[200px]">
               <Select
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value as number | '')}
-                label="Department"
+                value={selectedDepartment === '' ? '' : String(selectedDepartment)}
+                onChange={(e) => setSelectedDepartment(e.target.value === '' ? '' : Number(e.target.value))}
               >
-                <MenuItem value="">All Departments</MenuItem>
+                <option value="">All Departments</option>
                 {departments.map((dept) => (
-                  <MenuItem key={dept.id} value={dept.id}>
+                  <option key={dept.id} value={dept.id}>
                     {dept.name}
-                  </MenuItem>
+                  </option>
                 ))}
               </Select>
-            </FormControl>
-            <FormControl sx={{ minWidth: 150 }}>
-              <InputLabel>Type</InputLabel>
+            </div>
+            <div className="w-[150px]">
               <Select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value as number | '')}
-                label="Type"
+                value={selectedType === '' ? '' : String(selectedType)}
+                onChange={(e) => setSelectedType(e.target.value === '' ? '' : Number(e.target.value))}
               >
-                <MenuItem value="">All Types</MenuItem>
+                <option value="">All Types</option>
                 {subjectTypes.map((type) => (
-                  <MenuItem key={type.id} value={type.id}>
+                  <option key={type.id} value={type.id}>
                     {type.name}
-                  </MenuItem>
+                  </option>
                 ))}
               </Select>
-            </FormControl>
-          </Box>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      <TableContainer component={Paper}>
+      <div className="rounded-md border">
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableCell>Code</TableCell>
-              <TableCell>Subject Name</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Department</TableCell>
-              <TableCell align="center">Credits</TableCell>
-              <TableCell align="center">Weekly Load</TableCell>
-              <TableCell align="center">Status</TableCell>
-              <TableCell align="center">Actions</TableCell>
+              <TableHead>Code</TableHead>
+              <TableHead>Subject Name</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Department</TableHead>
+              <TableHead className="text-center">Credits</TableHead>
+              <TableHead className="text-center">Weekly Load</TableHead>
+              <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {filteredSubjects.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center">
-                  <Box py={4}>
-                    <Book sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-                    <Typography variant="body1" color="text.secondary">
-                      No subjects found
-                    </Typography>
-                  </Box>
+                <TableCell colSpan={8} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2">
+                    <BookOpen className="h-12 w-12 text-muted-foreground/50" />
+                    <p className="text-muted-foreground">No subjects found</p>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
               filteredSubjects.map((subject) => (
-                <TableRow key={subject.id} hover>
+                <TableRow key={subject.id} className="hover:bg-muted/50">
                   <TableCell>
-                    <Typography variant="subtitle2" fontWeight="bold" color="primary">
-                      {subject.code}
-                    </Typography>
+                    <span className="font-bold text-primary">{subject.code}</span>
                   </TableCell>
                   <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
+                    <div className="flex items-center gap-2">
                       {isLab(subject.subject_type_id) ? (
-                        <Science fontSize="small" color="action" />
+                        <FlaskConical className="h-4 w-4 text-muted-foreground" />
                       ) : (
-                        <Book fontSize="small" color="action" />
+                        <BookOpen className="h-4 w-4 text-muted-foreground" />
                       )}
-                      <Typography variant="subtitle2">
-                        {subject.name}
-                      </Typography>
-                    </Box>
+                      <span>{subject.name}</span>
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={getSubjectTypeName(subject.subject_type_id)}
-                      size="small"
-                      color={isLab(subject.subject_type_id) ? 'secondary' : 'default'}
-                      variant={isLab(subject.subject_type_id) ? 'filled' : 'outlined'}
-                    />
+                    <Badge variant={isLab(subject.subject_type_id) ? "default" : "outline"}>
+                      {getSubjectTypeName(subject.subject_type_id)}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Business fontSize="small" color="action" />
-                      <Typography variant="body2">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">
                         {departments.find(d => d.id === subject.department_id)?.name || 'Unknown'}
-                      </Typography>
-                    </Stack>
+                      </span>
+                    </div>
                   </TableCell>
-                  <TableCell align="center">
-                    <Typography variant="body2" fontWeight="medium">
-                      {subject.credit}
-                    </Typography>
+                  <TableCell className="text-center">
+                    <span className="font-medium">{subject.credit}</span>
                   </TableCell>
-                  <TableCell align="center">
-                    <Typography variant="body2">
-                      {subject.class_load_per_week} hrs/week
-                    </Typography>
+                  <TableCell className="text-center">
+                    <span className="text-sm">{subject.class_load_per_week} hrs/week</span>
                   </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={subject.is_active ? 'Active' : 'Inactive'}
-                      color={subject.is_active ? 'success' : 'default'}
-                      size="small"
-                    />
+                  <TableCell className="text-center">
+                    <Badge variant={subject.is_active ? "default" : "secondary"}>
+                      {subject.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
                   </TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEdit(subject)}
-                        color="primary"
-                      >
-                        <Edit />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => setDeleteDialog({ open: true, subject })}
-                        color="error"
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Tooltip>
+                  <TableCell className="text-center">
+                    <div className="flex justify-center gap-1">
+                      <Tooltip content="Edit">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(subject)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content="Delete">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteDialog({ open: true, subject })}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </Tooltip>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </div>
 
       <SubjectFormDialog
         open={openForm}
@@ -333,7 +279,7 @@ const SubjectList: React.FC = () => {
         confirmText="Delete"
         confirmColor="error"
       />
-    </Box>
+    </div>
   );
 };
 

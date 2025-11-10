@@ -1,25 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Grid,
-  Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Typography,
-} from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { type Session } from '../../types/models';
 import { sessionService, type CreateSessionRequest, type UpdateSessionRequest } from '../../services/sessionService';
 import { format } from 'date-fns';
+import { Button } from '../../components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../../components/ui/dialog';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
+import { Alert } from '../../components/ui/alert';
+import { AlertCircle, Info } from 'lucide-react';
 
 interface SessionFormDialogProps {
   open: boolean;
@@ -55,14 +56,14 @@ const SessionFormDialog: React.FC<SessionFormDialogProps> = ({
     } else {
       const currentYear = new Date().getFullYear();
       const currentMonth = new Date().getMonth();
-      
+
       // Default to FALL if current month is June or later, else SPRING
       const defaultSession = currentMonth >= 5 ? 'FALL' : 'SPRING';
-      
+
       setFormData({
         name: defaultSession as 'SPRING' | 'FALL',
         academic_year: currentYear.toString(),
-        start_date: defaultSession === 'FALL' 
+        start_date: defaultSession === 'FALL'
           ? new Date(currentYear, 7, 1) // August 1
           : new Date(currentYear, 0, 1), // January 1
         end_date: defaultSession === 'FALL'
@@ -146,120 +147,113 @@ const SessionFormDialog: React.FC<SessionFormDialogProps> = ({
   };
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {session ? 'Edit Session' : 'Add New Academic Session'}
-        </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            {submitError && (
-              <Grid item xs={12}>
-                <Alert severity="error" onClose={() => setSubmitError(null)}>
-                  {submitError}
-                </Alert>
-              </Grid>
-            )}
-            
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth error={!!errors.name}>
-                <InputLabel>Session Type</InputLabel>
-                <Select
-                  value={formData.name}
-                  onChange={(e) => handleChange('name', e.target.value)}
-                  label="Session Type"
-                  required
-                >
-                  <MenuItem value="SPRING">Spring (Even Semester)</MenuItem>
-                  <MenuItem value="FALL">Fall (Odd Semester)</MenuItem>
-                </Select>
-                {errors.name && (
-                  <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                    {errors.name}
-                  </Typography>
-                )}
-              </FormControl>
-            </Grid>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>
+            {session ? 'Edit Session' : 'Add New Academic Session'}
+          </DialogTitle>
+        </DialogHeader>
 
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Academic Year"
+        <div className="space-y-4 py-4">
+          {submitError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <span className="ml-2">{submitError}</span>
+            </Alert>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="session-type">Session Type</Label>
+              <Select
+                value={formData.name}
+                onValueChange={(value) => handleChange('name', value)}
+              >
+                <SelectTrigger id="session-type" className={errors.name ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SPRING">Spring (Even Semester)</SelectItem>
+                  <SelectItem value="FALL">Fall (Odd Semester)</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="academic-year">Academic Year</Label>
+              <Input
+                id="academic-year"
                 value={formData.academic_year}
                 onChange={(e) => handleChange('academic_year', e.target.value)}
-                error={!!errors.academic_year}
-                helperText={errors.academic_year || 'e.g., 2024'}
-                required
-                disabled={!!session} // Don't allow changing year on edit
+                disabled={!!session}
+                placeholder="e.g., 2024"
+                className={errors.academic_year ? 'border-red-500' : ''}
               />
-            </Grid>
+              {errors.academic_year && <p className="text-sm text-red-500">{errors.academic_year}</p>}
+              {!errors.academic_year && <p className="text-sm text-gray-500">e.g., 2024</p>}
+            </div>
+          </div>
 
-            <Grid item xs={12}>
-              <Alert severity="info" icon={false}>
-                <Typography variant="body2">
-                  <strong>Semester Parity:</strong> {getSessionParity(formData.name)} semesters 
-                  {formData.name === 'FALL' ? ' (1st, 3rd, 5th, 7th)' : ' (2nd, 4th, 6th, 8th)'}
-                </Typography>
-              </Alert>
-            </Grid>
+          <Alert>
+            <Info className="h-4 w-4" />
+            <div className="ml-2">
+              <p className="text-sm font-medium">
+                Semester Parity: {getSessionParity(formData.name)} semesters
+                {formData.name === 'FALL' ? ' (1st, 3rd, 5th, 7th)' : ' (2nd, 4th, 6th, 8th)'}
+              </p>
+            </div>
+          </Alert>
 
-            <Grid item xs={12} sm={6}>
-              <DatePicker
-                label="Start Date"
-                value={formData.start_date}
-                onChange={(newValue) => newValue && handleChange('start_date', newValue)}
-                slotProps={{
-                  textField: {
-                    fullWidth: true,
-                    error: !!errors.start_date,
-                    helperText: errors.start_date,
-                    required: true,
-                  },
-                }}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="start-date">Start Date</Label>
+              <Input
+                id="start-date"
+                type="date"
+                value={format(formData.start_date, 'yyyy-MM-dd')}
+                onChange={(e) => handleChange('start_date', new Date(e.target.value))}
+                className={errors.start_date ? 'border-red-500' : ''}
               />
-            </Grid>
+              {errors.start_date && <p className="text-sm text-red-500">{errors.start_date}</p>}
+            </div>
 
-            <Grid item xs={12} sm={6}>
-              <DatePicker
-                label="End Date"
-                value={formData.end_date}
-                onChange={(newValue) => newValue && handleChange('end_date', newValue)}
-                minDate={formData.start_date}
-                slotProps={{
-                  textField: {
-                    fullWidth: true,
-                    error: !!errors.end_date,
-                    helperText: errors.end_date,
-                    required: true,
-                  },
-                }}
+            <div className="space-y-2">
+              <Label htmlFor="end-date">End Date</Label>
+              <Input
+                id="end-date"
+                type="date"
+                value={format(formData.end_date, 'yyyy-MM-dd')}
+                onChange={(e) => handleChange('end_date', new Date(e.target.value))}
+                min={format(formData.start_date, 'yyyy-MM-dd')}
+                className={errors.end_date ? 'border-red-500' : ''}
               />
-            </Grid>
+              {errors.end_date && <p className="text-sm text-red-500">{errors.end_date}</p>}
+            </div>
+          </div>
 
-            <Grid item xs={12}>
-              <Alert severity="warning" icon={false}>
-                <Typography variant="caption">
-                  <strong>Note:</strong> Once created, sessions cannot be deleted if they have semester offerings. 
-                  The academic year cannot be changed after creation.
-                </Typography>
-              </Alert>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose} disabled={submitting}>
+          <Alert variant="destructive" className="bg-yellow-50 border-yellow-200">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <div className="ml-2">
+              <p className="text-xs text-yellow-800">
+                <strong>Note:</strong> Once created, sessions cannot be deleted if they have semester offerings.
+                The academic year cannot be changed after creation.
+              </p>
+            </div>
+          </Alert>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            disabled={submitting}
-          >
+          <Button onClick={handleSubmit} disabled={submitting}>
             {submitting ? 'Saving...' : (session ? 'Update' : 'Create')}
           </Button>
-        </DialogActions>
-      </Dialog>
-    </LocalizationProvider>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

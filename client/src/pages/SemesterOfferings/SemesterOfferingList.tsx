@@ -1,38 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  Tooltip,
-  TextField,
-  InputAdornment,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Grid,
-} from '@mui/material';
-import {
-  Add,
-  Edit,
-  Delete,
-  Search,
-  School,
-  Book,
-  Settings,
-  Assignment,
-} from '@mui/icons-material';
+import { Plus, Pencil, Trash2, Search, GraduationCap, BookOpen, ClipboardList } from 'lucide-react';
 import { type SemesterOffering, type Session } from '../../types/models';
 import { semesterOfferingService } from '../../services/semesterOfferingService';
 import { sessionService } from '../../services/sessionService';
@@ -41,6 +8,32 @@ import ErrorAlert from '../../components/Common/ErrorAlert';
 import ConfirmDialog from '../../components/Common/ConfirmDialog';
 import SemesterOfferingFormDialog from './SemesterOfferingFormDialog';
 import CourseOfferingDialog from './CourseOfferingDialog';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Badge } from '../../components/ui/badge';
+import { Label } from '../../components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../components/ui/tooltip';
 
 const SemesterOfferingList: React.FC = () => {
   const [offerings, setOfferings] = useState<SemesterOffering[]>([]);
@@ -130,7 +123,7 @@ const SemesterOfferingList: React.FC = () => {
 
   const handleDelete = async () => {
     if (!deleteDialog.offering) return;
-    
+
     try {
       await semesterOfferingService.delete(deleteDialog.offering.id);
       if (selectedSession) {
@@ -169,12 +162,12 @@ const SemesterOfferingList: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string): 'default' | 'warning' | 'success' => {
+  const getStatusColor = (status: string): 'default' | 'secondary' | 'outline' => {
     switch (status) {
-      case 'DRAFT': return 'default';
-      case 'ACTIVE': return 'success';
-      case 'ARCHIVED': return 'warning';
-      default: return 'default';
+      case 'DRAFT': return 'secondary';
+      case 'ACTIVE': return 'default';
+      case 'ARCHIVED': return 'outline';
+      default: return 'secondary';
     }
   };
 
@@ -195,166 +188,161 @@ const SemesterOfferingList: React.FC = () => {
   if (error) return <ErrorAlert message={error} />;
 
   return (
-    <Box>
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <Typography variant="h5" component="h2">
-              Semester Offerings
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={handleAdd}
-            >
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Semester Offerings</h2>
+            <Button onClick={handleAdd}>
+              <Plus className="mr-2 h-4 w-4" />
               Add Semester Offering
             </Button>
-          </Box>
+          </div>
 
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
-              <TextField
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
                 placeholder="Search by programme or department..."
-                variant="outlined"
-                size="small"
-                fullWidth
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search />
-                    </InputAdornment>
-                  ),
-                }}
+                className="pl-10"
               />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Filter by Session</InputLabel>
-                <Select
-                  value={selectedSession}
-                  onChange={(e) => setSelectedSession(e.target.value as number | '')}
-                  label="Filter by Session"
-                >
-                  <MenuItem value="">All Sessions</MenuItem>
+            </div>
+            <div className="space-y-2">
+              <Select
+                value={selectedSession.toString()}
+                onValueChange={(value) => setSelectedSession(value === '' ? '' : Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by Session" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Sessions</SelectItem>
                   {sessions.map(session => (
-                    <MenuItem key={session.id} value={session.id}>
+                    <SelectItem key={session.id} value={session.id.toString()}>
                       {session.name} {session.academic_year}
-                    </MenuItem>
+                    </SelectItem>
                   ))}
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      <TableContainer component={Paper}>
+      <div className="border rounded-lg">
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableCell>Programme</TableCell>
-              <TableCell>Department</TableCell>
-              <TableCell>Session</TableCell>
-              <TableCell>Semester</TableCell>
-              <TableCell align="center">Course Count</TableCell>
-              <TableCell align="center">Status</TableCell>
-              <TableCell align="center">Actions</TableCell>
+              <TableHead>Programme</TableHead>
+              <TableHead>Department</TableHead>
+              <TableHead>Session</TableHead>
+              <TableHead>Semester</TableHead>
+              <TableHead className="text-center">Course Count</TableHead>
+              <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {filteredOfferings.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
-                  <Box py={4}>
-                    <School sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-                    <Typography variant="body1" color="text.secondary">
-                      No semester offerings found
-                    </Typography>
-                  </Box>
+                <TableCell colSpan={7} className="text-center py-12">
+                  <GraduationCap className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500">No semester offerings found</p>
                 </TableCell>
               </TableRow>
             ) : (
               filteredOfferings.map((offering) => (
-                <TableRow key={offering.id} hover>
+                <TableRow key={offering.id} className="hover:bg-gray-50">
                   <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <School fontSize="small" color="primary" />
-                      <Typography variant="body2">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">
                         {offering.programme?.name || 'N/A'}
-                      </Typography>
-                    </Box>
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
+                    <span className="text-sm">
                       {offering.department?.name || 'N/A'}
-                    </Typography>
+                    </span>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={`${offering.session?.name} ${offering.session?.academic_year}`}
-                      size="small"
-                      variant="outlined"
-                    />
+                    <Badge variant="outline">
+                      {offering.session?.name} {offering.session?.academic_year}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={getSemesterLabel(offering.semester_number)}
-                      size="small"
-                      color={offering.semester_number % 2 === 0 ? 'secondary' : 'primary'}
-                    />
+                    <Badge className={offering.semester_number % 2 === 0 ? 'bg-purple-500' : 'bg-blue-500'}>
+                      {getSemesterLabel(offering.semester_number)}
+                    </Badge>
                   </TableCell>
-                  <TableCell align="center">
-                    <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
-                      <Book fontSize="small" color="action" />
-                      <Typography variant="body2">
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <BookOpen className="h-4 w-4 text-gray-400" />
+                      <span className="text-sm">
                         {offering.course_offerings?.length || 0}
-                      </Typography>
-                    </Box>
+                      </span>
+                    </div>
                   </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={offering.status}
-                      size="small"
-                      color={getStatusColor(offering.status)}
-                    />
+                  <TableCell className="text-center">
+                    <Badge variant={getStatusColor(offering.status)}>
+                      {offering.status}
+                    </Badge>
                   </TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="Manage Courses">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleManageCourses(offering)}
-                        color="secondary"
-                      >
-                        <Assignment />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEdit(offering)}
-                        color="primary"
-                      >
-                        <Edit />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => setDeleteDialog({ open: true, offering })}
-                        color="error"
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Tooltip>
+                  <TableCell className="text-center">
+                    <div className="flex justify-center gap-2">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleManageCourses(offering)}
+                            >
+                              <ClipboardList className="h-4 w-4 text-purple-600" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Manage Courses</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(offering)}
+                            >
+                              <Pencil className="h-4 w-4 text-blue-600" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Edit</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteDialog({ open: true, offering })}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </div>
 
       <SemesterOfferingFormDialog
         open={openForm}
@@ -378,7 +366,7 @@ const SemesterOfferingList: React.FC = () => {
         onConfirm={handleDelete}
         onCancel={() => setDeleteDialog({ open: false, offering: null })}
       />
-    </Box>
+    </div>
   );
 };
 
