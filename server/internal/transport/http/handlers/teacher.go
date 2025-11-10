@@ -157,13 +157,22 @@ func (h *TeacherHandler) UpdateTeacher(c *gin.Context) {
 		return
 	}
 
-	teacher := &models.Teacher{
-		ID:           uint(id),
-		Name:         req.Name,
-		Email:        req.Email,
-		DepartmentID: req.DepartmentID,
-		IsActive:     req.IsActive,
+	// Fetch existing teacher first to avoid data loss
+	teacher, err := h.teacherService.GetTeacherByID(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, dto.ErrorResponse{
+			Success: false,
+			Error:   "Teacher not found",
+			Code:    http.StatusNotFound,
+		})
+		return
 	}
+
+	// Update fields from request
+	teacher.Name = req.Name
+	teacher.Email = req.Email
+	teacher.DepartmentID = req.DepartmentID
+	teacher.IsActive = req.IsActive
 
 	// Set initials only if not empty
 	if req.Initials != "" {
@@ -171,10 +180,10 @@ func (h *TeacherHandler) UpdateTeacher(c *gin.Context) {
 	}
 
 	if err := h.teacherService.UpdateTeacher(teacher); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Success: false,
 			Error:   err.Error(),
-			Code:    http.StatusBadRequest,
+			Code:    http.StatusInternalServerError,
 		})
 		return
 	}
