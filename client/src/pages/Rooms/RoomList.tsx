@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Search, Door, Users, FlaskConical, BookOpen, Tag } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, DoorOpen, Users, FlaskConical, BookOpen, Tag } from 'lucide-react';
 import { type Room, type Department } from '../../types/models';
 import { roomService } from '../../services/roomService';
 import { departmentService } from '../../services/departmentService';
@@ -194,7 +194,7 @@ const RoomList: React.FC = () => {
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
-                    <Door className="h-12 w-12 text-muted-foreground/50" />
+                    <DoorOpen className="h-12 w-12 text-muted-foreground/50" />
                     <p className="text-muted-foreground">No rooms found</p>
                   </div>
                 </TableCell>
