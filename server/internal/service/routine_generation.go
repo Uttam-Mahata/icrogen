@@ -660,21 +660,67 @@ func (s *routineGenerationService) canPlaceBlock(block models.ClassBlock, day in
 		slotNumbers = append(slotNumbers, slot)
 	}
 
-	// Check teacher availability
-	teacherAvailable, _ := s.scheduleRepo.CheckTeacherAvailability(block.TeacherID, sessionID, day, slotNumbers)
+	// Check teacher availability (session-level - prevents double-booking across ALL departments)
+	teacherAvailable, err := s.scheduleRepo.CheckTeacherAvailability(block.TeacherID, sessionID, day, slotNumbers)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"teacher_id": block.TeacherID,
+			"session_id": sessionID,
+			"day":        day,
+			"slots":      slotNumbers,
+			"error":      err.Error(),
+		}).Error("Failed to check teacher availability")
+		return false
+	}
 	if !teacherAvailable {
+		logrus.WithFields(logrus.Fields{
+			"teacher_id": block.TeacherID,
+			"session_id": sessionID,
+			"day":        day,
+			"slots":      slotNumbers,
+		}).Debug("Teacher unavailable - already scheduled in another department/programme")
 		return false
 	}
 
-	// Check room availability
-	roomAvailable, _ := s.scheduleRepo.CheckRoomAvailability(block.RoomID, sessionID, day, slotNumbers)
+	// Check room availability (session-level - prevents double-booking across ALL departments)
+	roomAvailable, err := s.scheduleRepo.CheckRoomAvailability(block.RoomID, sessionID, day, slotNumbers)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"room_id":    block.RoomID,
+			"session_id": sessionID,
+			"day":        day,
+			"slots":      slotNumbers,
+			"error":      err.Error(),
+		}).Error("Failed to check room availability")
+		return false
+	}
 	if !roomAvailable {
+		logrus.WithFields(logrus.Fields{
+			"room_id":    block.RoomID,
+			"session_id": sessionID,
+			"day":        day,
+			"slots":      slotNumbers,
+		}).Debug("Room unavailable - already booked in another department/programme")
 		return false
 	}
 
 	// Check student group availability (same semester offering)
-	studentAvailable, _ := s.scheduleRepo.CheckStudentGroupAvailability(block.SemesterOfferingID, day, slotNumbers, 0)
+	studentAvailable, err := s.scheduleRepo.CheckStudentGroupAvailability(block.SemesterOfferingID, day, slotNumbers, 0)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"semester_offering_id": block.SemesterOfferingID,
+			"day":                  day,
+			"slots":                slotNumbers,
+			"error":                err.Error(),
+		}).Error("Failed to check student group availability")
+		return false
+	}
 	if !studentAvailable {
+		logrus.WithFields(logrus.Fields{
+			"semester_offering_id": block.SemesterOfferingID,
+			"day":                  day,
+			"slots":                slotNumbers,
+		}).Debug("Student group unavailable - already has class scheduled")
 		return false
 	}
 
