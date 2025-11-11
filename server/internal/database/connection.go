@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"icrogen/internal/models"
 	"strings"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 	mysqlDriver "gorm.io/driver/mysql"
@@ -11,18 +12,8 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// Connect establishes a connection to the MySQL database
+// Connect establishes a connection to the MySQL database with connection pooling
 func Connect(databaseURL string) (*gorm.DB, error) {
-	return connectWithMigration(databaseURL, true)
-}
-
-// ConnectWithoutMigration establishes a connection to the MySQL database without running migrations
-func ConnectWithoutMigration(databaseURL string) (*gorm.DB, error) {
-	return connectWithMigration(databaseURL, false)
-}
-
-// connectWithMigration is the internal function that handles connection with optional migration
-func connectWithMigration(databaseURL string, runMigrations bool) (*gorm.DB, error) {
 	// Register TLS config for TiDB if the connection string contains tls=tidb
 	if strings.Contains(databaseURL, "tls=tidb") {
 		mysql.RegisterTLSConfig("tidb", &tls.Config{
@@ -30,7 +21,7 @@ func connectWithMigration(databaseURL string, runMigrations bool) (*gorm.DB, err
 			ServerName: "gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
 		})
 	}
-	
+
 	// Ensure parseTime=True is in the connection string for proper datetime parsing
 	if !strings.Contains(databaseURL, "parseTime=") {
 		if strings.Contains(databaseURL, "?") {
@@ -39,97 +30,87 @@ func connectWithMigration(databaseURL string, runMigrations bool) (*gorm.DB, err
 			databaseURL += "?parseTime=True"
 		}
 	}
-	
+
+	// Use Warn level to reduce log noise (only logs errors and slow queries)
 	db, err := gorm.Open(mysqlDriver.Open(databaseURL), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(logger.Warn),
+		// Improve performance with prepared statement caching
+		PrepareStmt: true,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if runMigrations {
-		// Auto-migrate the schema
-		err = db.AutoMigrate(
-			&models.Programme{},
-			&models.Department{},
-			&models.Teacher{},
-			&models.SubjectType{},
-			&models.Subject{},
-			&models.Room{},
-			&models.Session{},
-			&models.SemesterDefinition{},
-			&models.SemesterOffering{},
-			&models.CourseOffering{},
-			&models.TeacherAssignment{},
-			&models.RoomAssignment{},
-			&models.TimeSlot{},
-			&models.ScheduleRun{},
-			&models.ScheduleBlock{},
-			&models.ScheduleEntry{},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		// Add indexes for performance and constraints
-		if err := addIndexes(db); err != nil {
-			return nil, err
-		}
+	// Configure connection pooling for optimal performance
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
 	}
+
+	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool
+	sqlDB.SetMaxIdleConns(10)
+
+	// SetMaxOpenConns sets the maximum number of open connections to the database
+	sqlDB.SetMaxOpenConns(100)
+
+	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused
+	// This helps avoid issues with MySQL's wait_timeout
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	return db, nil
 }
 
-// addIndexes creates additional indexes for performance and constraints
-func addIndexes(db *gorm.DB) error {
-	// Unique constraints
-	if err := db.Exec("ALTER TABLE departments ADD UNIQUE INDEX uq_dept_prog_name (programme_id, name)").Error; err != nil {
-		// Ignore if already exists
-	}
-	
-	if err := db.Exec("ALTER TABLE subjects ADD UNIQUE INDEX uq_subj_prog_dept_code (programme_id, department_id, code)").Error; err != nil {
-		// Ignore if already exists
-	}
-	
-	if err := db.Exec("ALTER TABLE semester_definitions ADD UNIQUE INDEX uq_sem_def_prog_num (programme_id, semester_number)").Error; err != nil {
-		// Ignore if already exists
-	}
-	
-	if err := db.Exec("ALTER TABLE sessions ADD UNIQUE INDEX uq_session_name_year (name, academic_year)").Error; err != nil {
-		// Ignore if already exists
-	}
-	
-	if err := db.Exec("ALTER TABLE semester_offerings ADD UNIQUE INDEX uq_sem_off_prog_dept_sess_num (programme_id, department_id, session_id, semester_number)").Error; err != nil {
-		// Ignore if already exists
-	}
-	
-	if err := db.Exec("ALTER TABLE course_offerings ADD UNIQUE INDEX uq_course_off_sem_subj (semester_offering_id, subject_id)").Error; err != nil {
-		// Ignore if already exists
-	}
-	
-	if err := db.Exec("ALTER TABLE teacher_assignments ADD UNIQUE INDEX uq_teacher_assign_course_teacher (course_offering_id, teacher_id)").Error; err != nil {
-		// Ignore if already exists
-	}
-	
-	if err := db.Exec("ALTER TABLE room_assignments ADD UNIQUE INDEX uq_room_assign_course_room (course_offering_id, room_id)").Error; err != nil {
-		// Ignore if already exists
-	}
-	
-	if err := db.Exec("ALTER TABLE time_slots ADD UNIQUE INDEX uq_time_slot_day_num (day_of_week, slot_number)").Error; err != nil {
-		// Ignore if already exists
+// Migrate runs database migrations - should only be called from migration command
+func Migrate(db *gorm.DB) error {
+	// Auto-migrate the schema
+	err := db.AutoMigrate(
+		&models.Programme{},
+		&models.Department{},
+		&models.Teacher{},
+		&models.SubjectType{},
+		&models.Subject{},
+		&models.Room{},
+		&models.Session{},
+		&models.SemesterDefinition{},
+		&models.SemesterOffering{},
+		&models.CourseOffering{},
+		&models.TeacherAssignment{},
+		&models.RoomAssignment{},
+		&models.TimeSlot{},
+		&models.ScheduleRun{},
+		&models.ScheduleBlock{},
+		&models.ScheduleEntry{},
+	)
+	if err != nil {
+		return err
 	}
 
-	// Conflict prevention indexes for schedule_entries
-	if err := db.Exec("ALTER TABLE schedule_entries ADD UNIQUE INDEX uq_sched_entry_sess_day_slot_teacher (session_id, day_of_week, slot_number, teacher_id)").Error; err != nil {
-		// Ignore if already exists
+	// Add indexes for performance and constraints
+	return addIndexes(db)
+}
+
+// addIndexes creates additional indexes for performance and constraints
+func addIndexes(db *gorm.DB) error {
+	indexes := []string{
+		"ALTER TABLE departments ADD UNIQUE INDEX IF NOT EXISTS uq_dept_prog_name (programme_id, name)",
+		"ALTER TABLE subjects ADD UNIQUE INDEX IF NOT EXISTS uq_subj_prog_dept_code (programme_id, department_id, code)",
+		"ALTER TABLE semester_definitions ADD UNIQUE INDEX IF NOT EXISTS uq_sem_def_prog_num (programme_id, semester_number)",
+		"ALTER TABLE sessions ADD UNIQUE INDEX IF NOT EXISTS uq_session_name_year (name, academic_year)",
+		"ALTER TABLE semester_offerings ADD UNIQUE INDEX IF NOT EXISTS uq_sem_off_prog_dept_sess_num (programme_id, department_id, session_id, semester_number)",
+		"ALTER TABLE course_offerings ADD UNIQUE INDEX IF NOT EXISTS uq_course_off_sem_subj (semester_offering_id, subject_id)",
+		"ALTER TABLE teacher_assignments ADD UNIQUE INDEX IF NOT EXISTS uq_teacher_assign_course_teacher (course_offering_id, teacher_id)",
+		"ALTER TABLE room_assignments ADD UNIQUE INDEX IF NOT EXISTS uq_room_assign_course_room (course_offering_id, room_id)",
+		"ALTER TABLE time_slots ADD UNIQUE INDEX IF NOT EXISTS uq_time_slot_day_num (day_of_week, slot_number)",
+		"ALTER TABLE schedule_entries ADD UNIQUE INDEX IF NOT EXISTS uq_sched_entry_sess_day_slot_teacher (session_id, day_of_week, slot_number, teacher_id)",
+		"ALTER TABLE schedule_entries ADD UNIQUE INDEX IF NOT EXISTS uq_sched_entry_sess_day_slot_room (session_id, day_of_week, slot_number, room_id)",
+		"ALTER TABLE schedule_entries ADD UNIQUE INDEX IF NOT EXISTS uq_sched_entry_run_day_slot_course (schedule_run_id, day_of_week, slot_number, course_offering_id)",
 	}
-	
-	if err := db.Exec("ALTER TABLE schedule_entries ADD UNIQUE INDEX uq_sched_entry_sess_day_slot_room (session_id, day_of_week, slot_number, room_id)").Error; err != nil {
-		// Ignore if already exists
-	}
-	
-	if err := db.Exec("ALTER TABLE schedule_entries ADD UNIQUE INDEX uq_sched_entry_run_day_slot_course (schedule_run_id, day_of_week, slot_number, course_offering_id)").Error; err != nil {
-		// Ignore if already exists
+
+	for _, idx := range indexes {
+		if err := db.Exec(idx).Error; err != nil {
+			// Ignore errors (index might already exist)
+			continue
+		}
 	}
 
 	return nil

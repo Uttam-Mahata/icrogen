@@ -94,6 +94,7 @@ export const API_ENDPOINTS = {
   // Routines
   routines: {
     generate: '/routines/generate',
+    generateBulk: '/routines/generate-bulk',
     get: (id: number) => `/routines/${id}`,
     bySemesterOffering: (id: number) => `/routines/semester-offering/${id}`,
     commit: (id: number) => `/routines/${id}/commit`,

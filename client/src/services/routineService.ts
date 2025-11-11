@@ -1,6 +1,6 @@
 import { apiClient } from './apiClient';
 import { API_ENDPOINTS } from '../config/api';
-import { type ScheduleRun, type ScheduleEntry, type ScheduleBlock } from '../types/models';
+import { type ScheduleRun, type ScheduleEntry } from '../types/models';
 
 export interface GenerateRoutineRequest {
   semester_offering_id: number;
@@ -16,9 +16,39 @@ export interface CommitScheduleRequest {
   message?: string;
 }
 
+export interface GenerateBulkRoutinesRequest {
+  session_id: number;
+  parity: 'ODD' | 'EVEN';
+  department_id?: number;
+}
+
+export interface BulkGenerationResult {
+  semester_offering_id: number;
+  semester_offering_name: string;
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  schedule_run_id?: number;
+  placed_blocks: number;
+  total_blocks: number;
+  error_message?: string;
+}
+
+export interface BulkGenerationResponse {
+  results: BulkGenerationResult[];
+  summary: {
+    total: number;
+    successful: number;
+    partial: number;
+    failed: number;
+  };
+}
+
 class RoutineService {
   async generateRoutine(data: GenerateRoutineRequest): Promise<ScheduleRun> {
     return apiClient.post<ScheduleRun>(API_ENDPOINTS.routines.generate, data);
+  }
+
+  async generateBulkRoutines(data: GenerateBulkRoutinesRequest): Promise<BulkGenerationResponse> {
+    return apiClient.post<BulkGenerationResponse>(API_ENDPOINTS.routines.generateBulk, data);
   }
 
   async getScheduleRun(id: number): Promise<ScheduleRun> {

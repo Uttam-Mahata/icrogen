@@ -1,39 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  Tooltip,
-  TextField,
-  InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Avatar,
-} from '@mui/material';
-import {
-  Add,
-  Edit,
-  Delete,
-  Search,
-  MeetingRoom,
-  Group,
-  Science,
-  School,
-  Category,
-} from '@mui/icons-material';
+import { Plus, Pencil, Trash2, Search, DoorOpen, Users, FlaskConical, BookOpen, Tag } from 'lucide-react';
 import { type Room, type Department } from '../../types/models';
 import { roomService } from '../../services/roomService';
 import { departmentService } from '../../services/departmentService';
@@ -41,6 +7,14 @@ import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import ErrorAlert from '../../components/Common/ErrorAlert';
 import ConfirmDialog from '../../components/Common/ConfirmDialog';
 import RoomFormDialog from './RoomFormDialog';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Select } from '../../components/ui/select';
+import { Badge } from '../../components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Tooltip } from '../../components/ui/tooltip';
+import { Avatar } from '../../components/ui/avatar';
 
 const RoomList: React.FC = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -90,7 +64,7 @@ const RoomList: React.FC = () => {
 
   const handleDelete = async () => {
     if (!deleteDialog.room) return;
-    
+
     try {
       await roomService.delete(deleteDialog.room.id);
       await fetchData();
@@ -114,22 +88,11 @@ const RoomList: React.FC = () => {
   const getRoomTypeIcon = (type: string) => {
     switch (type) {
       case 'LAB':
-        return <Science fontSize="small" />;
+        return <FlaskConical className="h-4 w-4" />;
       case 'THEORY':
-        return <School fontSize="small" />;
+        return <BookOpen className="h-4 w-4" />;
       default:
-        return <Category fontSize="small" />;
-    }
-  };
-
-  const getRoomTypeColor = (type: string): "primary" | "secondary" | "default" => {
-    switch (type) {
-      case 'LAB':
-        return 'secondary';
-      case 'THEORY':
-        return 'primary';
-      default:
-        return 'default';
+        return <Tag className="h-4 w-4" />;
     }
   };
 
@@ -154,186 +117,156 @@ const RoomList: React.FC = () => {
     return matchesSearch && matchesType && matchesDepartment;
   });
 
-  if (loading) return <LoadingSpinner />;
-  if (error) return <ErrorAlert message={error} />;
+  if (loading) return <LoadingSpinner message="Loading rooms..." />;
+  if (error) return <ErrorAlert error={error} />;
 
   return (
-    <Box>
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <Typography variant="h5" component="h2">
-              Room Management
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={handleAdd}
-            >
-              Add Room
-            </Button>
-          </Box>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Rooms</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage classroom and laboratory spaces
+          </p>
+        </div>
+        <Button onClick={handleAdd} size="lg">
+          <Plus className="mr-2 h-4 w-4" />
+          Add Room
+        </Button>
+      </div>
 
-          <Box display="flex" gap={2} flexWrap="wrap">
-            <TextField
-              placeholder="Search rooms..."
-              variant="outlined"
-              size="small"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ minWidth: 250 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search />
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Room Type</InputLabel>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-4 flex-wrap">
+            <div className="flex-1 min-w-[250px] relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search rooms..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="w-[150px]">
               <Select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                label="Room Type"
               >
-                <MenuItem value="">All Types</MenuItem>
-                <MenuItem value="THEORY">Theory</MenuItem>
-                <MenuItem value="LAB">Laboratory</MenuItem>
-                <MenuItem value="OTHER">Other</MenuItem>
+                <option value="">All Types</option>
+                <option value="THEORY">Theory</option>
+                <option value="LAB">Laboratory</option>
+                <option value="OTHER">Other</option>
               </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Department</InputLabel>
+            </div>
+            <div className="w-[200px]">
               <Select
-                value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value as number | '')}
-                label="Department"
+                value={selectedDepartment === '' ? '' : String(selectedDepartment)}
+                onChange={(e) => setSelectedDepartment(e.target.value === '' ? '' : Number(e.target.value))}
               >
-                <MenuItem value="">All Departments</MenuItem>
-                <MenuItem value={0}>
-                  <em>Shared Rooms</em>
-                </MenuItem>
+                <option value="">All Departments</option>
+                <option value="0">Shared Rooms</option>
                 {departments.map((dept) => (
-                  <MenuItem key={dept.id} value={dept.id}>
+                  <option key={dept.id} value={dept.id}>
                     {dept.name}
-                  </MenuItem>
+                  </option>
                 ))}
               </Select>
-            </FormControl>
-          </Box>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      <TableContainer component={Paper}>
+      <div className="rounded-md border">
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableCell>Room</TableCell>
-              <TableCell>Room Number</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell align="center">Capacity</TableCell>
-              <TableCell>Owner Department</TableCell>
-              <TableCell align="center">Status</TableCell>
-              <TableCell align="center">Actions</TableCell>
+              <TableHead>Room</TableHead>
+              <TableHead>Room Number</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead className="text-center">Capacity</TableHead>
+              <TableHead>Owner Department</TableHead>
+              <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {filteredRooms.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
-                  <Box py={4}>
-                    <MeetingRoom sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-                    <Typography variant="body1" color="text.secondary">
-                      No rooms found
-                    </Typography>
-                  </Box>
+                <TableCell colSpan={7} className="text-center py-12">
+                  <div className="flex flex-col items-center gap-2">
+                    <DoorOpen className="h-12 w-12 text-muted-foreground/50" />
+                    <p className="text-muted-foreground">No rooms found</p>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
               filteredRooms.map((room) => (
-                <TableRow key={room.id} hover>
+                <TableRow key={room.id} className="hover:bg-muted/50">
                   <TableCell>
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Avatar sx={{ bgcolor: getRoomTypeColor(room.type) === 'primary' ? 'primary.main' : 'secondary.main', width: 36, height: 36 }}>
+                    <div className="flex items-center gap-3">
+                      <Avatar className={room.type === 'LAB' ? 'bg-secondary' : ''}>
                         {getRoomTypeIcon(room.type)}
                       </Avatar>
-                      <Typography variant="subtitle2" fontWeight="medium">
-                        {room.name}
-                      </Typography>
-                    </Box>
+                      <span className="font-medium">{room.name}</span>
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={room.room_number} 
-                      size="small" 
-                      variant="outlined"
-                    />
+                    <Badge variant="outline">{room.room_number}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      icon={getRoomTypeIcon(room.type)}
-                      label={getRoomTypeLabel(room.type)}
-                      size="small"
-                      color={getRoomTypeColor(room.type)}
-                      variant="outlined"
-                    />
+                    <div className="flex items-center gap-2">
+                      {getRoomTypeIcon(room.type)}
+                      <span className="text-sm">{getRoomTypeLabel(room.type)}</span>
+                    </div>
                   </TableCell>
-                  <TableCell align="center">
-                    <Box display="flex" alignItems="center" justifyContent="center" gap={0.5}>
-                      <Group fontSize="small" color="action" />
-                      <Typography variant="body2">{room.capacity}</Typography>
-                    </Box>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{room.capacity}</span>
+                    </div>
                   </TableCell>
                   <TableCell>
                     {room.department_id ? (
-                      <Typography variant="body2">
+                      <span className="text-sm">
                         {departments.find(d => d.id === room.department_id)?.name || 'Unknown'}
-                      </Typography>
+                      </span>
                     ) : (
-                      <Chip
-                        label="Shared"
-                        size="small"
-                        color="info"
-                        variant="outlined"
-                      />
+                      <Badge variant="secondary">Shared</Badge>
                     )}
                   </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={room.is_active ? 'Active' : 'Inactive'}
-                      color={room.is_active ? 'success' : 'default'}
-                      size="small"
-                    />
+                  <TableCell className="text-center">
+                    <Badge variant={room.is_active ? "default" : "secondary"}>
+                      {room.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
                   </TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEdit(room)}
-                        color="primary"
-                      >
-                        <Edit />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => setDeleteDialog({ open: true, room })}
-                        color="error"
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Tooltip>
+                  <TableCell className="text-center">
+                    <div className="flex justify-center gap-1">
+                      <Tooltip content="Edit">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(room)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content="Delete">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteDialog({ open: true, room })}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </Tooltip>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </div>
 
       <RoomFormDialog
         open={openForm}
@@ -349,8 +282,10 @@ const RoomList: React.FC = () => {
         message={`Are you sure you want to delete "${deleteDialog.room?.name}"? This action cannot be undone.`}
         onConfirm={handleDelete}
         onCancel={() => setDeleteDialog({ open: false, room: null })}
+        confirmText="Delete"
+        confirmColor="error"
       />
-    </Box>
+    </div>
   );
 };
 

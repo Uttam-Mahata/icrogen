@@ -113,10 +113,10 @@ func (h *RoomHandler) GetRoomsByType(c *gin.Context) {
 
 	rooms, err := h.roomService.GetRoomsByType(roomType)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Success: false,
 			Error:   err.Error(),
-			Code:    http.StatusBadRequest,
+			Code:    http.StatusInternalServerError,
 		})
 		return
 	}
@@ -141,10 +141,10 @@ func (h *RoomHandler) GetRoomsByDepartment(c *gin.Context) {
 
 	rooms, err := h.roomService.GetRoomsByDepartmentID(uint(departmentID))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Success: false,
 			Error:   err.Error(),
-			Code:    http.StatusBadRequest,
+			Code:    http.StatusInternalServerError,
 		})
 		return
 	}
@@ -177,21 +177,32 @@ func (h *RoomHandler) UpdateRoom(c *gin.Context) {
 		return
 	}
 
-	room := &models.Room{
-		ID:           uint(id),
-		Name:         req.Name,
-		RoomNumber:   req.RoomNumber,
-		Capacity:     req.Capacity,
-		Type:         req.Type,
-		DepartmentID: req.DepartmentID,
-		IsActive:     *req.IsActive,
+	// Fetch existing room first to avoid data loss
+	room, err := h.roomService.GetRoomByID(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, dto.ErrorResponse{
+			Success: false,
+			Error:   "Room not found",
+			Code:    http.StatusNotFound,
+		})
+		return
+	}
+
+	// Update fields from request
+	room.Name = req.Name
+	room.RoomNumber = req.RoomNumber
+	room.Capacity = req.Capacity
+	room.Type = req.Type
+	room.DepartmentID = req.DepartmentID
+	if req.IsActive != nil {
+		room.IsActive = *req.IsActive
 	}
 
 	if err := h.roomService.UpdateRoom(room); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Success: false,
 			Error:   err.Error(),
-			Code:    http.StatusBadRequest,
+			Code:    http.StatusInternalServerError,
 		})
 		return
 	}

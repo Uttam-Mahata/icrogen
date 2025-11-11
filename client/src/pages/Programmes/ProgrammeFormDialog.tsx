@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Grid,
-  FormControlLabel,
-  Switch,
-  Alert,
-} from '@mui/material';
 import { type Programme } from '../../types/models';
 import { programmeService, type CreateProgrammeRequest, type UpdateProgrammeRequest } from '../../services/programmeService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Switch } from '../../components/ui/switch';
+import { Alert } from '../../components/ui/alert';
+import { cn } from '@/lib/utils';
 
 interface ProgrammeFormDialogProps {
   open: boolean;
@@ -119,87 +114,97 @@ const ProgrammeFormDialog: React.FC<ProgrammeFormDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {programme ? 'Edit Programme' : 'Add New Programme'}
-      </DialogTitle>
-      <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 1 }}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>
+            {programme ? 'Edit Programme' : 'Add New Programme'}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
           {submitError && (
-            <Grid item xs={12}>
-              <Alert severity="error" onClose={() => setSubmitError(null)}>
-                {submitError}
-              </Alert>
-            </Grid>
+            <Alert variant="destructive">
+              {submitError}
+            </Alert>
           )}
-          
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Programme Name"
+
+          <div className="space-y-2">
+            <Label htmlFor="name">
+              Programme Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="name"
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
-              error={!!errors.name}
-              helperText={errors.name}
-              required
+              className={cn(errors.name && "border-destructive")}
             />
-          </Grid>
+            {errors.name && (
+              <p className="text-sm text-destructive">{errors.name}</p>
+            )}
+          </div>
 
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              type="number"
-              label="Duration (Years)"
-              value={formData.duration_years}
-              onChange={(e) => handleChange('duration_years', parseInt(e.target.value))}
-              error={!!errors.duration_years}
-              helperText={errors.duration_years}
-              inputProps={{ min: 1, max: 10 }}
-              required
-            />
-          </Grid>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="duration">
+                Duration (Years) <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="duration"
+                type="number"
+                value={formData.duration_years}
+                onChange={(e) => handleChange('duration_years', parseInt(e.target.value))}
+                min={1}
+                max={10}
+                className={cn(errors.duration_years && "border-destructive")}
+              />
+              {errors.duration_years && (
+                <p className="text-sm text-destructive">{errors.duration_years}</p>
+              )}
+            </div>
 
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              type="number"
-              label="Total Semesters"
-              value={formData.total_semesters}
-              onChange={(e) => handleChange('total_semesters', parseInt(e.target.value))}
-              error={!!errors.total_semesters}
-              helperText={errors.total_semesters}
-              inputProps={{ min: 1, max: 20 }}
-              required
-            />
-          </Grid>
+            <div className="space-y-2">
+              <Label htmlFor="semesters">
+                Total Semesters <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="semesters"
+                type="number"
+                value={formData.total_semesters}
+                onChange={(e) => handleChange('total_semesters', parseInt(e.target.value))}
+                min={1}
+                max={20}
+                className={cn(errors.total_semesters && "border-destructive")}
+              />
+              {errors.total_semesters && (
+                <p className="text-sm text-destructive">{errors.total_semesters}</p>
+              )}
+            </div>
+          </div>
 
           {programme && (
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.is_active}
-                    onChange={(e) => handleChange('is_active', e.target.checked)}
-                  />
-                }
-                label="Active"
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => handleChange('is_active', checked)}
               />
-            </Grid>
+              <Label htmlFor="active" className="cursor-pointer">
+                Active
+              </Label>
+            </div>
           )}
-        </Grid>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting ? 'Saving...' : (programme ? 'Update' : 'Create')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={submitting}
-        >
-          {submitting ? 'Saving...' : (programme ? 'Update' : 'Create')}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 };

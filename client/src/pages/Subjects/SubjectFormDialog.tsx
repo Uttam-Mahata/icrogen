@@ -1,23 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Grid,
-  FormControlLabel,
-  Switch,
-  Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Typography,
-} from '@mui/material';
 import { type Subject, type Department, type Programme, type SubjectType } from '../../types/models';
 import { subjectService, type CreateSubjectRequest, type UpdateSubjectRequest } from '../../services/subjectService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Select } from '../../components/ui/select';
+import { Switch } from '../../components/ui/switch';
+import { Alert } from '../../components/ui/alert';
+import { cn } from '@/lib/utils';
 
 interface SubjectFormDialogProps {
   open: boolean;
@@ -184,174 +175,189 @@ const SubjectFormDialog: React.FC<SubjectFormDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        {subject ? 'Edit Subject' : 'Add New Subject'}
-      </DialogTitle>
-      <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 1 }}>
-          {submitError && (
-            <Grid item xs={12}>
-              <Alert severity="error" onClose={() => setSubmitError(null)}>
-                {submitError}
-              </Alert>
-            </Grid>
-          )}
-          
-          <Grid item xs={12} sm={8}>
-            <TextField
-              fullWidth
-              label="Subject Name"
-              value={formData.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              error={!!errors.name}
-              helperText={errors.name}
-              required
-            />
-          </Grid>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>
+            {subject ? 'Edit Subject' : 'Add New Subject'}
+          </DialogTitle>
+        </DialogHeader>
 
-          <Grid item xs={12} sm={4}>
-            <TextField
-              fullWidth
-              label="Subject Code"
-              value={formData.code}
-              onChange={(e) => handleChange('code', e.target.value.toUpperCase())}
-              error={!!errors.code}
-              helperText={errors.code}
-              inputProps={{ maxLength: 20 }}
-              required
-            />
-          </Grid>
+        <div className="space-y-4 py-4">
+          {submitError && (
+            <Alert variant="destructive">
+              {submitError}
+            </Alert>
+          )}
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2 space-y-2">
+              <Label htmlFor="name">
+                Subject Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleChange('name', e.target.value)}
+                className={cn(errors.name && "border-destructive")}
+              />
+              {errors.name && (
+                <p className="text-sm text-destructive">{errors.name}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="code">
+                Code <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="code"
+                value={formData.code}
+                onChange={(e) => handleChange('code', e.target.value.toUpperCase())}
+                maxLength={20}
+                className={cn(errors.code && "border-destructive")}
+              />
+              {errors.code && (
+                <p className="text-sm text-destructive">{errors.code}</p>
+              )}
+            </div>
+          </div>
 
           {!subject && (
             <>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth error={!!errors.programme_id}>
-                  <InputLabel>Programme</InputLabel>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="programme">
+                    Programme <span className="text-destructive">*</span>
+                  </Label>
                   <Select
-                    value={formData.programme_id}
-                    onChange={(e) => handleChange('programme_id', e.target.value)}
-                    label="Programme"
-                    required
+                    id="programme"
+                    value={String(formData.programme_id)}
+                    onChange={(e) => handleChange('programme_id', Number(e.target.value))}
+                    className={cn(errors.programme_id && "border-destructive")}
                   >
                     {programmes.map((prog) => (
-                      <MenuItem key={prog.id} value={prog.id}>
+                      <option key={prog.id} value={prog.id}>
                         {prog.name}
-                      </MenuItem>
+                      </option>
                     ))}
                   </Select>
                   {errors.programme_id && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                      {errors.programme_id}
-                    </Typography>
+                    <p className="text-sm text-destructive">{errors.programme_id}</p>
                   )}
-                </FormControl>
-              </Grid>
+                </div>
 
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth error={!!errors.department_id}>
-                  <InputLabel>Department</InputLabel>
+                <div className="space-y-2">
+                  <Label htmlFor="department">
+                    Department <span className="text-destructive">*</span>
+                  </Label>
                   <Select
-                    value={formData.department_id}
-                    onChange={(e) => handleChange('department_id', e.target.value)}
-                    label="Department"
-                    required
+                    id="department"
+                    value={String(formData.department_id)}
+                    onChange={(e) => handleChange('department_id', Number(e.target.value))}
                     disabled={!formData.programme_id}
+                    className={cn(errors.department_id && "border-destructive")}
                   >
                     {filteredDepartments.map((dept) => (
-                      <MenuItem key={dept.id} value={dept.id}>
+                      <option key={dept.id} value={dept.id}>
                         {dept.name}
-                      </MenuItem>
+                      </option>
                     ))}
                   </Select>
                   {errors.department_id && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                      {errors.department_id}
-                    </Typography>
+                    <p className="text-sm text-destructive">{errors.department_id}</p>
                   )}
-                </FormControl>
-              </Grid>
+                </div>
+              </div>
 
-              <Grid item xs={12}>
-                <FormControl fullWidth error={!!errors.subject_type_id}>
-                  <InputLabel>Subject Type</InputLabel>
-                  <Select
-                    value={formData.subject_type_id}
-                    onChange={(e) => handleChange('subject_type_id', e.target.value)}
-                    label="Subject Type"
-                    required
-                  >
-                    {subjectTypes.map((type) => (
-                      <MenuItem key={type.id} value={type.id}>
-                        {type.name} {type.is_lab && '(Lab)'}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {errors.subject_type_id && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                      {errors.subject_type_id}
-                    </Typography>
-                  )}
-                </FormControl>
-              </Grid>
+              <div className="space-y-2">
+                <Label htmlFor="type">
+                  Subject Type <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  id="type"
+                  value={String(formData.subject_type_id)}
+                  onChange={(e) => handleChange('subject_type_id', Number(e.target.value))}
+                  className={cn(errors.subject_type_id && "border-destructive")}
+                >
+                  {subjectTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name} {type.is_lab && '(Lab)'}
+                    </option>
+                  ))}
+                </Select>
+                {errors.subject_type_id && (
+                  <p className="text-sm text-destructive">{errors.subject_type_id}</p>
+                )}
+              </div>
             </>
           )}
 
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              type="number"
-              label="Credits"
-              value={formData.credit}
-              onChange={(e) => handleChange('credit', parseInt(e.target.value))}
-              error={!!errors.credit}
-              helperText={errors.credit || 'Number of academic credits'}
-              inputProps={{ min: 1, max: 10 }}
-              required
-            />
-          </Grid>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="credits">
+                Credits <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="credits"
+                type="number"
+                value={formData.credit}
+                onChange={(e) => handleChange('credit', parseInt(e.target.value))}
+                min={1}
+                max={10}
+                className={cn(errors.credit && "border-destructive")}
+              />
+              {errors.credit ? (
+                <p className="text-sm text-destructive">{errors.credit}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Number of academic credits</p>
+              )}
+            </div>
 
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              type="number"
-              label="Weekly Load (Hours)"
-              value={formData.class_load_per_week}
-              onChange={(e) => handleChange('class_load_per_week', parseInt(e.target.value))}
-              error={!!errors.class_load_per_week}
-              helperText={errors.class_load_per_week || 'Teaching hours per week'}
-              inputProps={{ min: 1, max: 20 }}
-              required
-            />
-          </Grid>
+            <div className="space-y-2">
+              <Label htmlFor="load">
+                Weekly Load (Hours) <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="load"
+                type="number"
+                value={formData.class_load_per_week}
+                onChange={(e) => handleChange('class_load_per_week', parseInt(e.target.value))}
+                min={1}
+                max={20}
+                className={cn(errors.class_load_per_week && "border-destructive")}
+              />
+              {errors.class_load_per_week ? (
+                <p className="text-sm text-destructive">{errors.class_load_per_week}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Teaching hours per week</p>
+              )}
+            </div>
+          </div>
 
           {subject && (
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.is_active}
-                    onChange={(e) => handleChange('is_active', e.target.checked)}
-                  />
-                }
-                label="Active"
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => handleChange('is_active', checked)}
               />
-            </Grid>
+              <Label htmlFor="active" className="cursor-pointer">
+                Active
+              </Label>
+            </div>
           )}
-        </Grid>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting ? 'Saving...' : (subject ? 'Update' : 'Create')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={submitting}
-        >
-          {submitting ? 'Saving...' : (subject ? 'Update' : 'Create')}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 };

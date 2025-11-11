@@ -61,23 +61,23 @@ func (s *subjectService) CreateSubject(subject *models.Subject) error {
 	if subject.SubjectTypeID == 0 {
 		return errors.New("subject type ID is required")
 	}
-	
+
 	// Validate that referenced entities exist
 	_, err := s.programmeRepo.GetByID(subject.ProgrammeID)
 	if err != nil {
 		return errors.New("invalid programme ID")
 	}
-	
+
 	_, err = s.departmentRepo.GetByID(subject.DepartmentID)
 	if err != nil {
 		return errors.New("invalid department ID")
 	}
-	
+
 	subjectType, err := s.subjectTypeRepo.GetByID(subject.SubjectTypeID)
 	if err != nil {
 		return errors.New("invalid subject type ID")
 	}
-	
+
 	// Validate class load based on subject type
 	if subjectType.IsLab {
 		// Labs typically have 3-hour blocks once per week
@@ -90,7 +90,7 @@ func (s *subjectService) CreateSubject(subject *models.Subject) error {
 			return errors.New("theory subjects should have class load equal to credits")
 		}
 	}
-	
+
 	return s.subjectRepo.Create(subject)
 }
 
@@ -123,7 +123,7 @@ func (s *subjectService) UpdateSubject(subject *models.Subject) error {
 	if subject.ID == 0 {
 		return errors.New("subject ID is required for update")
 	}
-	
+
 	// Validate subject data
 	if subject.Name == "" {
 		return errors.New("subject name is required")
@@ -137,7 +137,7 @@ func (s *subjectService) UpdateSubject(subject *models.Subject) error {
 	if subject.ClassLoadPerWeek <= 0 {
 		return errors.New("class load per week must be positive")
 	}
-	
+
 	return s.subjectRepo.Update(subject)
 }
 
@@ -145,10 +145,10 @@ func (s *subjectService) DeleteSubject(id uint) error {
 	if id == 0 {
 		return errors.New("invalid subject ID")
 	}
-	
+
 	// TODO: Check if subject has active course offerings
 	// This would require checking CourseOffering records
-	
+
 	return s.subjectRepo.Delete(id)
 }
 
@@ -175,7 +175,7 @@ func (s *subjectTypeService) CreateSubjectType(subjectType *models.SubjectType) 
 	if subjectType.Name == "" {
 		return errors.New("subject type name is required")
 	}
-	
+
 	return s.subjectTypeRepo.Create(subjectType)
 }
 
@@ -194,11 +194,11 @@ func (s *subjectTypeService) UpdateSubjectType(subjectType *models.SubjectType) 
 	if subjectType.ID == 0 {
 		return errors.New("subject type ID is required for update")
 	}
-	
+
 	if subjectType.Name == "" {
 		return errors.New("subject type name is required")
 	}
-	
+
 	return s.subjectTypeRepo.Update(subjectType)
 }
 
@@ -206,9 +206,9 @@ func (s *subjectTypeService) DeleteSubjectType(id uint) error {
 	if id == 0 {
 		return errors.New("invalid subject type ID")
 	}
-	
+
 	// TODO: Check if subject type has subjects
 	// This would require checking Subject records
-	
+
 	return s.subjectTypeRepo.Delete(id)
 }

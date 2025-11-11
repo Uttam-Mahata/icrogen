@@ -1,26 +1,16 @@
 import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
-  Box,
-  Grid,
-  Card,
-  CardContent,
-  Typography,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
-  Chip,
-} from '@mui/material';
-import {
-  School,
-  Business,
-  Person,
-  Book,
-  MeetingRoom,
-  Schedule,
+  GraduationCap,
+  Building2,
+  Users,
+  BookOpen,
+  DoorOpen,
+  Calendar,
   TrendingUp,
   CheckCircle,
-} from '@mui/icons-material';
+} from 'lucide-react';
 
 interface StatCard {
   title: string;
@@ -34,38 +24,38 @@ const Dashboard: React.FC = () => {
     {
       title: 'Active Programmes',
       value: '5',
-      icon: <School />,
-      color: '#2196f3',
+      icon: <GraduationCap className="h-5 w-5" />,
+      color: 'bg-blue-500',
     },
     {
       title: 'Departments',
       value: '12',
-      icon: <Business />,
-      color: '#4caf50',
+      icon: <Building2 className="h-5 w-5" />,
+      color: 'bg-green-500',
     },
     {
       title: 'Total Teachers',
       value: '156',
-      icon: <Person />,
-      color: '#ff9800',
+      icon: <Users className="h-5 w-5" />,
+      color: 'bg-orange-500',
     },
     {
       title: 'Total Subjects',
       value: '342',
-      icon: <Book />,
-      color: '#9c27b0',
+      icon: <BookOpen className="h-5 w-5" />,
+      color: 'bg-purple-500',
     },
     {
       title: 'Available Rooms',
       value: '48',
-      icon: <MeetingRoom />,
-      color: '#f44336',
+      icon: <DoorOpen className="h-5 w-5" />,
+      color: 'bg-red-500',
     },
     {
       title: 'Generated Routines',
       value: '24',
-      icon: <Schedule />,
-      color: '#00bcd4',
+      icon: <Calendar className="h-5 w-5" />,
+      color: 'bg-cyan-500',
     },
   ];
 
@@ -77,170 +67,118 @@ const Dashboard: React.FC = () => {
     { text: 'New session "Fall 2025" created', time: '3 days ago', status: 'warning' },
   ];
 
+  const getStatusBorderColor = (status: string) => {
+    switch (status) {
+      case 'success': return 'border-green-500';
+      case 'warning': return 'border-orange-500';
+      default: return 'border-blue-500';
+    }
+  };
+
+  const getStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
+    switch (status) {
+      case 'success': return 'default';
+      case 'warning': return 'secondary';
+      default: return 'outline';
+    }
+  };
+
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom fontWeight="bold">
-        Dashboard
-      </Typography>
-      <Typography variant="body1" color="text.secondary" paragraph>
+    <div>
+      <h1 className="text-4xl font-bold mb-2">Dashboard</h1>
+      <p className="text-muted-foreground mb-6">
         Welcome to ICRoGen - Manage your academic schedules efficiently
-      </Typography>
+      </p>
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={4} lg={2} key={index}>
-            <Card
-              sx={{
-                height: '100%',
-                background: `linear-gradient(135deg, ${stat.color}20 0%, ${stat.color}10 100%)`,
-                borderTop: `3px solid ${stat.color}`,
-              }}
-            >
-              <CardContent>
-                <Box display="flex" alignItems="center" mb={2}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 40,
-                      height: 40,
-                      borderRadius: '50%',
-                      backgroundColor: stat.color,
-                      color: 'white',
-                    }}
-                  >
-                    {React.cloneElement(stat.icon, { fontSize: 'small' })}
-                  </Box>
-                </Box>
-                <Typography variant="h4" fontWeight="bold">
-                  {stat.value}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {stat.title}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3 }}>
-            <Box display="flex" alignItems="center" mb={2}>
-              <TrendingUp color="primary" sx={{ mr: 1 }} />
-              <Typography variant="h6" fontWeight="bold">
-                Recent Activities
-              </Typography>
-            </Box>
-            <List>
-              {recentActivities.map((activity, index) => (
-                <ListItem
-                  key={index}
-                  sx={{
-                    borderLeft: `3px solid ${
-                      activity.status === 'success'
-                        ? '#4caf50'
-                        : activity.status === 'warning'
-                        ? '#ff9800'
-                        : '#2196f3'
-                    }`,
-                    mb: 1,
-                    backgroundColor: 'background.default',
-                    borderRadius: 1,
-                  }}
+          <Card
+            key={index}
+            className="relative overflow-hidden"
+            style={{
+              background: `linear-gradient(135deg, ${stat.color}20 0%, ${stat.color}10 100%)`,
+              borderTop: `3px solid ${stat.color}`,
+            }}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center mb-3">
+                <div
+                  className={`flex items-center justify-center w-10 h-10 rounded-full text-white ${stat.color}`}
                 >
-                  <ListItemText
-                    primary={activity.text}
-                    secondary={activity.time}
-                  />
-                  <Chip
-                    label={activity.status}
-                    size="small"
-                    color={
-                      activity.status === 'success'
-                        ? 'success'
-                        : activity.status === 'warning'
-                        ? 'warning'
-                        : 'info'
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Paper>
-        </Grid>
+                  {stat.icon}
+                </div>
+              </div>
+              <h2 className="text-3xl font-bold mb-1">{stat.value}</h2>
+              <p className="text-sm text-muted-foreground">{stat.title}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3 }}>
-            <Box display="flex" alignItems="center" mb={2}>
-              <CheckCircle color="success" sx={{ mr: 1 }} />
-              <Typography variant="h6" fontWeight="bold">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Recent Activities
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {recentActivities.map((activity, index) => (
+                  <li
+                    key={index}
+                    className={`border-l-4 ${getStatusBorderColor(activity.status)} pl-4 py-2 rounded bg-muted/50`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{activity.text}</p>
+                        <p className="text-xs text-muted-foreground">{activity.time}</p>
+                      </div>
+                      <Badge variant={getStatusVariant(activity.status)} className="ml-2">
+                        {activity.status}
+                      </Badge>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
                 Quick Actions
-              </Typography>
-            </Box>
-            <List>
-              <ListItem
-                button
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  mb: 1,
-                }}
-              >
-                <ListItemText
-                  primary="Generate New Routine"
-                  secondary="Create schedule for a semester"
-                />
-              </ListItem>
-              <ListItem
-                button
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  mb: 1,
-                }}
-              >
-                <ListItemText
-                  primary="Add Programme"
-                  secondary="Create new academic programme"
-                />
-              </ListItem>
-              <ListItem
-                button
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  mb: 1,
-                }}
-              >
-                <ListItemText
-                  primary="Manage Teachers"
-                  secondary="Add or update faculty members"
-                />
-              </ListItem>
-              <ListItem
-                button
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                }}
-              >
-                <ListItemText
-                  primary="View Reports"
-                  secondary="Check routine statistics"
-                />
-              </ListItem>
-            </List>
-          </Paper>
-        </Grid>
-      </Grid>
-    </Box>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                <li className="border border-border rounded p-3 hover:bg-muted/50 cursor-pointer transition-colors">
+                  <p className="text-sm font-medium">Generate New Routine</p>
+                  <p className="text-xs text-muted-foreground">Create schedule for a semester</p>
+                </li>
+                <li className="border border-border rounded p-3 hover:bg-muted/50 cursor-pointer transition-colors">
+                  <p className="text-sm font-medium">Add Programme</p>
+                  <p className="text-xs text-muted-foreground">Create new academic programme</p>
+                </li>
+                <li className="border border-border rounded p-3 hover:bg-muted/50 cursor-pointer transition-colors">
+                  <p className="text-sm font-medium">Manage Teachers</p>
+                  <p className="text-xs text-muted-foreground">Add or update faculty members</p>
+                </li>
+                <li className="border border-border rounded p-3 hover:bg-muted/50 cursor-pointer transition-colors">
+                  <p className="text-sm font-medium">View Reports</p>
+                  <p className="text-xs text-muted-foreground">Check routine statistics</p>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
   );
 };
 

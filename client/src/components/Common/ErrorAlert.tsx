@@ -1,5 +1,6 @@
 import React from 'react';
-import { Alert, AlertTitle, Box } from '@mui/material';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 
 interface ErrorAlertProps {
   error: string | Error;
@@ -8,14 +9,15 @@ interface ErrorAlertProps {
 
 const ErrorAlert: React.FC<ErrorAlertProps> = ({ error, title = 'Error' }) => {
   const errorMessage = error instanceof Error ? error.message : error;
-  
+
   return (
-    <Box sx={{ my: 2 }}>
-      <Alert severity="error">
+    <div className="my-2">
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
         <AlertTitle>{title}</AlertTitle>
-        {errorMessage}
+        <AlertDescription>{errorMessage}</AlertDescription>
       </Alert>
-    </Box>
+    </div>
   );
 };
 

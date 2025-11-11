@@ -1,33 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  Tooltip,
-  TextField,
-  InputAdornment,
-  Avatar,
-} from '@mui/material';
-import {
-  Add,
-  Edit,
-  Delete,
-  Search,
-  CalendarMonth,
-  School,
-  DateRange,
-} from '@mui/icons-material';
+import { Plus, Pencil, Trash2, Search, Calendar, GraduationCap, CalendarRange } from 'lucide-react';
 import { format } from 'date-fns';
 import { type Session } from '../../types/models';
 import { sessionService } from '../../services/sessionService';
@@ -35,6 +7,26 @@ import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import ErrorAlert from '../../components/Common/ErrorAlert';
 import ConfirmDialog from '../../components/Common/ConfirmDialog';
 import SessionFormDialog from './SessionFormDialog';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Badge } from '../../components/ui/badge';
+import { Avatar } from '../../components/ui/avatar';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../components/ui/tooltip';
+import { cn } from '../../lib/utils';
 
 const SessionList: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -83,7 +75,7 @@ const SessionList: React.FC = () => {
 
   const handleDelete = async () => {
     if (!deleteDialog.session) return;
-    
+
     try {
       await sessionService.delete(deleteDialog.session.id);
       await fetchSessions();
@@ -104,12 +96,8 @@ const SessionList: React.FC = () => {
     await fetchSessions();
   };
 
-  const getSessionIcon = (name: string) => {
-    return name === 'FALL' ? '🍂' : '🌸';
-  };
-
-  const getSessionColor = (name: string): "primary" | "secondary" => {
-    return name === 'FALL' ? 'primary' : 'secondary';
+  const getSessionColor = (name: string) => {
+    return name === 'FALL' ? 'bg-blue-500' : 'bg-purple-500';
   };
 
   const getParityLabel = (parity: string) => {
@@ -127,63 +115,48 @@ const SessionList: React.FC = () => {
   if (error) return <ErrorAlert message={error} />;
 
   return (
-    <Box>
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <Typography variant="h5" component="h2">
-              Academic Sessions
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={handleAdd}
-            >
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Academic Sessions</h2>
+            <Button onClick={handleAdd}>
+              <Plus className="mr-2 h-4 w-4" />
               Add Session
             </Button>
-          </Box>
+          </div>
 
-          <TextField
-            placeholder="Search sessions by year, type, or parity..."
-            variant="outlined"
-            size="small"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ minWidth: 300 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              ),
-            }}
-          />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search sessions by year, type, or parity..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 max-w-md"
+            />
+          </div>
         </CardContent>
       </Card>
 
-      <TableContainer component={Paper}>
+      <div className="border rounded-lg">
         <Table>
-          <TableHead>
+          <TableHeader>
             <TableRow>
-              <TableCell>Session</TableCell>
-              <TableCell>Academic Year</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Semester Parity</TableCell>
-              <TableCell>Duration</TableCell>
-              <TableCell align="center">Status</TableCell>
-              <TableCell align="center">Actions</TableCell>
+              <TableHead>Session</TableHead>
+              <TableHead>Academic Year</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Semester Parity</TableHead>
+              <TableHead>Duration</TableHead>
+              <TableHead className="text-center">Status</TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
-          </TableHead>
+          </TableHeader>
           <TableBody>
             {filteredSessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
-                  <Box py={4}>
-                    <CalendarMonth sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
-                    <Typography variant="body1" color="text.secondary">
-                      No sessions found
-                    </Typography>
-                  </Box>
+                <TableCell colSpan={7} className="text-center py-12">
+                  <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500">No sessions found</p>
                 </TableCell>
               </TableRow>
             ) : (
@@ -191,92 +164,99 @@ const SessionList: React.FC = () => {
                 const startDate = new Date(session.start_date);
                 const endDate = new Date(session.end_date);
                 const isActive = new Date() >= startDate && new Date() <= endDate;
-                
+
                 return (
-                  <TableRow key={session.id} hover>
+                  <TableRow key={session.id} className="hover:bg-gray-50">
                     <TableCell>
-                      <Box display="flex" alignItems="center" gap={2}>
-                        <Avatar sx={{ bgcolor: getSessionColor(session.name) === 'primary' ? 'primary.main' : 'secondary.main', width: 36, height: 36 }}>
-                          <Typography fontSize="large">{getSessionIcon(session.name)}</Typography>
+                      <div className="flex items-center gap-3">
+                        <Avatar className={cn('h-9 w-9', getSessionColor(session.name))}>
+                          <span className="text-white text-lg">
+                            {session.name === 'FALL' ? 'F' : 'S'}
+                          </span>
                         </Avatar>
-                        <Box>
-                          <Typography variant="subtitle2" fontWeight="medium">
+                        <div>
+                          <p className="font-medium">
                             {session.name} {session.academic_year}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          </p>
+                          <p className="text-sm text-gray-500">
                             ID: {session.id}
-                          </Typography>
-                        </Box>
-                      </Box>
+                          </p>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={session.academic_year}
-                        size="small"
-                        variant="outlined"
-                        icon={<School fontSize="small" />}
-                      />
+                      <Badge variant="outline" className="gap-1">
+                        <GraduationCap className="h-3 w-3" />
+                        {session.academic_year}
+                      </Badge>
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={session.name}
-                        size="small"
-                        color={getSessionColor(session.name)}
-                        variant="filled"
-                      />
+                      <Badge className={session.name === 'FALL' ? 'bg-blue-500' : 'bg-purple-500'}>
+                        {session.name}
+                      </Badge>
                     </TableCell>
                     <TableCell>
-                      <Box>
-                        <Chip
-                          label={session.parity}
-                          size="small"
-                          color={session.parity === 'ODD' ? 'warning' : 'info'}
-                          variant="outlined"
-                        />
-                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                      <div>
+                        <Badge
+                          variant="outline"
+                          className={session.parity === 'ODD' ? 'border-orange-500 text-orange-600' : 'border-sky-500 text-sky-600'}
+                        >
+                          {session.parity}
+                        </Badge>
+                        <p className="text-xs text-gray-500 mt-1">
                           {getParityLabel(session.parity)}
-                        </Typography>
-                      </Box>
+                        </p>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <Box display="flex" alignItems="center" gap={0.5}>
-                        <DateRange fontSize="small" color="action" />
-                        <Box>
-                          <Typography variant="body2">
+                      <div className="flex items-center gap-2">
+                        <CalendarRange className="h-4 w-4 text-gray-400" />
+                        <div>
+                          <p className="text-sm">
                             {format(startDate, 'MMM dd, yyyy')}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          </p>
+                          <p className="text-xs text-gray-500">
                             to {format(endDate, 'MMM dd, yyyy')}
-                          </Typography>
-                        </Box>
-                      </Box>
+                          </p>
+                        </div>
+                      </div>
                     </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={isActive ? 'Active' : 'Inactive'}
-                        color={isActive ? 'success' : 'default'}
-                        size="small"
-                      />
+                    <TableCell className="text-center">
+                      <Badge variant={isActive ? 'default' : 'secondary'}>
+                        {isActive ? 'Active' : 'Inactive'}
+                      </Badge>
                     </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="Edit">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEdit(session)}
-                          color="primary"
-                        >
-                          <Edit />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          onClick={() => setDeleteDialog({ open: true, session })}
-                          color="error"
-                        >
-                          <Delete />
-                        </IconButton>
-                      </Tooltip>
+                    <TableCell className="text-center">
+                      <div className="flex justify-center gap-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(session)}
+                              >
+                                <Pencil className="h-4 w-4 text-blue-600" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Edit</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeleteDialog({ open: true, session })}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -284,7 +264,7 @@ const SessionList: React.FC = () => {
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </div>
 
       <SessionFormDialog
         open={openForm}
@@ -300,7 +280,7 @@ const SessionList: React.FC = () => {
         onConfirm={handleDelete}
         onCancel={() => setDeleteDialog({ open: false, session: null })}
       />
-    </Box>
+    </div>
   );
 };
 

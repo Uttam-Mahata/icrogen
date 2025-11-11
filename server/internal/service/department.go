@@ -18,9 +18,9 @@ type DepartmentService interface {
 }
 
 type departmentService struct {
-	departmentRepo  repository.DepartmentRepository
-	programmeRepo   repository.ProgrammeRepository
-	teacherRepo     repository.TeacherRepository
+	departmentRepo repository.DepartmentRepository
+	programmeRepo  repository.ProgrammeRepository
+	teacherRepo    repository.TeacherRepository
 }
 
 func NewDepartmentService(
@@ -46,13 +46,13 @@ func (s *departmentService) CreateDepartment(department *models.Department) erro
 	if department.Strength < 0 {
 		return errors.New("strength cannot be negative")
 	}
-	
+
 	// Validate that programme exists
 	_, err := s.programmeRepo.GetByID(department.ProgrammeID)
 	if err != nil {
 		return errors.New("invalid programme ID")
 	}
-	
+
 	return s.departmentRepo.Create(department)
 }
 
@@ -78,7 +78,7 @@ func (s *departmentService) UpdateDepartment(department *models.Department) erro
 	if department.ID == 0 {
 		return errors.New("department ID is required for update")
 	}
-	
+
 	// Validate department data
 	if department.Name == "" {
 		return errors.New("department name is required")
@@ -89,7 +89,7 @@ func (s *departmentService) UpdateDepartment(department *models.Department) erro
 	if department.Strength < 0 {
 		return errors.New("strength cannot be negative")
 	}
-	
+
 	return s.departmentRepo.Update(department)
 }
 
@@ -97,17 +97,17 @@ func (s *departmentService) DeleteDepartment(id uint) error {
 	if id == 0 {
 		return errors.New("invalid department ID")
 	}
-	
+
 	// Check if department has teachers
 	teachers, err := s.teacherRepo.GetByDepartmentID(id)
 	if err != nil {
 		return err
 	}
-	
+
 	if len(teachers) > 0 {
 		return errors.New("cannot delete department with existing teachers")
 	}
-	
+
 	return s.departmentRepo.Delete(id)
 }
 

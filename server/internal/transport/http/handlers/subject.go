@@ -213,7 +213,7 @@ func (h *SubjectHandler) UpdateSubject(c *gin.Context) {
 	existing.Credit = req.Credit
 	existing.ClassLoadPerWeek = req.ClassLoadPerWeek
 	existing.IsActive = req.IsActive
-	
+
 	// Only update SubjectTypeID if provided
 	if req.SubjectTypeID != 0 {
 		existing.SubjectTypeID = req.SubjectTypeID

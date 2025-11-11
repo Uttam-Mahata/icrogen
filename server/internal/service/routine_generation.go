@@ -15,10 +15,21 @@ import (
 // RoutineGenerationService interface for routine generation business logic
 type RoutineGenerationService interface {
 	GenerateRoutine(semesterOfferingID uint) (*models.ScheduleRun, error)
+	GenerateBulkRoutines(sessionID uint, parity string, departmentID *uint) ([]*BulkGenerationResult, error)
 	CommitScheduleRun(scheduleRunID uint) error
 	CancelScheduleRun(scheduleRunID uint) error
 	GetScheduleRun(scheduleRunID uint) (*models.ScheduleRun, error)
 	GetScheduleRunsBySemesterOffering(semesterOfferingID uint) ([]models.ScheduleRun, error)
+}
+
+// BulkGenerationResult represents the result of generating a single routine in bulk operation
+type BulkGenerationResult struct {
+	SemesterOfferingID   uint
+	SemesterOfferingName string
+	ScheduleRun          *models.ScheduleRun
+	Error                error
+	PlacedBlocks         int
+	TotalBlocks          int
 }
 
 type routineGenerationService struct {
@@ -63,20 +74,28 @@ type PlacementSuggestion struct {
 
 // TimeSlot represents a suggested time slot
 type TimeSlot struct {
-	DayOfWeek   int `json:"day_of_week"`
-	SlotStart   int `json:"slot_start"`
-	SlotLength  int `json:"slot_length"`
+	DayOfWeek  int `json:"day_of_week"`
+	SlotStart  int `json:"slot_start"`
+	SlotLength int `json:"slot_length"`
 }
 
 func (s *routineGenerationService) GenerateRoutine(semesterOfferingID uint) (*models.ScheduleRun, error) {
-	logrus.Info("Starting routine generation for semester offering ID: ", semesterOfferingID)
-	
+	logrus.WithFields(logrus.Fields{
+		"semester_offering_id": semesterOfferingID,
+	}).Info("Starting routine generation")
+
 	// Get semester offering with all course offerings
 	semesterOffering, err := s.semesterOfferingRepo.GetWithCourseOfferings(semesterOfferingID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get semester offering: %w", err)
 	}
-	
+
+	logrus.WithFields(logrus.Fields{
+		"semester_offering_id":   semesterOfferingID,
+		"course_offerings_count": len(semesterOffering.CourseOfferings),
+		"session_id":             semesterOffering.SessionID,
+	}).Info("Loaded semester offering data")
+
 	// Create a new schedule run
 	scheduleRun := &models.ScheduleRun{
 		SemesterOfferingID: semesterOfferingID,
@@ -85,86 +104,214 @@ func (s *routineGenerationService) GenerateRoutine(semesterOfferingID uint) (*mo
 		GeneratedAt:        time.Now(),
 		Meta:               "{}", // Initialize with empty JSON object
 	}
-	
+
 	if err := s.scheduleRepo.CreateScheduleRun(scheduleRun); err != nil {
 		return nil, fmt.Errorf("failed to create schedule run: %w", err)
 	}
-	
+
 	// Generate class blocks from course offerings
 	classBlocks, err := s.generateClassBlocks(semesterOffering.CourseOfferings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate class blocks: %w", err)
 	}
-	
+
+	logrus.WithFields(logrus.Fields{
+		"total_blocks":  len(classBlocks),
+		"lab_blocks":    countLabBlocks(classBlocks),
+		"theory_blocks": len(classBlocks) - countLabBlocks(classBlocks),
+	}).Info("Generated class blocks from course offerings")
+
 	// Initialize timetable
 	timetable := s.initializeTimetable()
-	
+
 	// Load existing committed schedules for the session
 	existingEntries, err := s.scheduleRepo.GetCommittedScheduleEntries(semesterOffering.SessionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get existing schedule entries: %w", err)
 	}
-	
+
+	logrus.WithFields(logrus.Fields{
+		"existing_committed_entries": len(existingEntries),
+	}).Info("Loaded existing committed schedules")
+
 	// Mark existing committed slots as occupied
 	s.markExistingSlots(timetable, existingEntries)
-	
+
 	// Run the backtracking algorithm
+	logrus.Info("Starting backtracking algorithm")
 	report := s.runBacktrackingAlgorithm(classBlocks, timetable, semesterOffering.SessionID)
-	
+
+	logrus.WithFields(logrus.Fields{
+		"total_blocks":    report.TotalBlocks,
+		"placed_blocks":   report.PlacedBlocks,
+		"unplaced_blocks": len(report.UnplacedBlocks),
+		"success_rate":    fmt.Sprintf("%.1f%%", float64(report.PlacedBlocks)/float64(report.TotalBlocks)*100),
+	}).Info("Backtracking algorithm completed")
+
 	// Convert timetable to schedule entries
 	scheduleEntries := s.convertTimetableToEntries(timetable, scheduleRun.ID, semesterOffering)
-	
+
 	// Save schedule entries
 	if len(scheduleEntries) > 0 {
 		if err := s.scheduleRepo.CreateScheduleEntries(scheduleEntries); err != nil {
 			return nil, fmt.Errorf("failed to save schedule entries: %w", err)
 		}
 	}
-	
+
 	// Update schedule run with report
 	reportJSON, _ := json.Marshal(report)
 	scheduleRun.Meta = string(reportJSON)
-	
+
 	if report.PlacedBlocks == report.TotalBlocks {
 		scheduleRun.Status = "DRAFT" // Ready for commit
 	} else {
 		scheduleRun.Status = "FAILED" // Partial solution
 	}
-	
+
 	if err := s.scheduleRepo.UpdateScheduleRun(scheduleRun); err != nil {
 		return nil, fmt.Errorf("failed to update schedule run: %w", err)
 	}
-	
-	logrus.Info("Routine generation completed. Placed: ", report.PlacedBlocks, "/", report.TotalBlocks)
-	
+
+	if report.PlacedBlocks == report.TotalBlocks {
+		logrus.WithFields(logrus.Fields{
+			"schedule_run_id": scheduleRun.ID,
+			"status":          "success",
+		}).Info("Routine generation completed successfully - all blocks placed")
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"schedule_run_id": scheduleRun.ID,
+			"status":          "partial",
+			"unplaced_count":  len(report.UnplacedBlocks),
+		}).Warn("Routine generation completed with unplaced blocks")
+	}
+
 	return s.scheduleRepo.GetScheduleRunByID(scheduleRun.ID)
+}
+
+// GenerateBulkRoutines generates routines for multiple semester offerings based on session, parity, and optional department filter
+func (s *routineGenerationService) GenerateBulkRoutines(sessionID uint, parity string, departmentID *uint) ([]*BulkGenerationResult, error) {
+	logrus.WithFields(logrus.Fields{
+		"session_id":    sessionID,
+		"parity":        parity,
+		"department_id": departmentID,
+	}).Info("Starting bulk routine generation")
+
+	// Get all semester offerings for the session
+	semesterOfferings, err := s.semesterOfferingRepo.GetBySession(sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get semester offerings: %w", err)
+	}
+
+	// Filter by parity (ODD/EVEN semesters)
+	var filtered []models.SemesterOffering
+	for _, so := range semesterOfferings {
+		// Determine parity: Odd semesters are 1,3,5,7; Even semesters are 2,4,6,8
+		isOdd := so.SemesterNumber%2 == 1
+		matchesParity := (parity == "ODD" && isOdd) || (parity == "EVEN" && !isOdd)
+
+		// Apply department filter if provided
+		matchesDepartment := departmentID == nil || so.DepartmentID == *departmentID
+
+		if matchesParity && matchesDepartment {
+			filtered = append(filtered, so)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return nil, errors.New("no semester offerings found matching the criteria")
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"total_semester_offerings": len(filtered),
+		"parity":                   parity,
+	}).Info("Filtered semester offerings for bulk generation")
+
+	// Generate routines sequentially to avoid race conditions
+	results := make([]*BulkGenerationResult, 0, len(filtered))
+	for _, so := range filtered {
+		result := &BulkGenerationResult{
+			SemesterOfferingID: so.ID,
+			SemesterOfferingName: fmt.Sprintf("%s - %s - Sem %d",
+				so.Programme.Name, so.Department.Name, so.SemesterNumber),
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"semester_offering_id": so.ID,
+			"name":                 result.SemesterOfferingName,
+		}).Info("Generating routine for semester offering")
+
+		// Generate routine
+		scheduleRun, err := s.GenerateRoutine(so.ID)
+		if err != nil {
+			result.Error = err
+			logrus.WithFields(logrus.Fields{
+				"semester_offering_id": so.ID,
+				"error":                err.Error(),
+			}).Error("Failed to generate routine")
+		} else {
+			result.ScheduleRun = scheduleRun
+
+			// Parse meta to get placed/total blocks
+			var report GenerationReport
+			if err := json.Unmarshal([]byte(scheduleRun.Meta), &report); err == nil {
+				result.PlacedBlocks = report.PlacedBlocks
+				result.TotalBlocks = report.TotalBlocks
+			}
+
+			logrus.WithFields(logrus.Fields{
+				"semester_offering_id": so.ID,
+				"schedule_run_id":      scheduleRun.ID,
+				"placed_blocks":        result.PlacedBlocks,
+				"total_blocks":         result.TotalBlocks,
+			}).Info("Successfully generated routine")
+		}
+
+		results = append(results, result)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"total_generated": len(results),
+	}).Info("Bulk routine generation completed")
+
+	return results, nil
+}
+
+// countLabBlocks returns the number of lab blocks in a slice of class blocks
+func countLabBlocks(blocks []models.ClassBlock) int{
+	count := 0
+	for _, block := range blocks {
+		if block.IsLab {
+			count++
+		}
+	}
+	return count
 }
 
 func (s *routineGenerationService) generateClassBlocks(courseOfferings []models.CourseOffering) ([]models.ClassBlock, error) {
 	var blocks []models.ClassBlock
-	
+
 	for _, offering := range courseOfferings {
 		// Determine how many blocks needed based on weekly required slots
 		weeklySlots := offering.WeeklyRequiredSlots
 		isLab := offering.IsLab
-		
+
 		// Get assigned teachers and rooms
 		if len(offering.TeacherAssignments) == 0 {
-			logrus.Warnf("No teachers assigned to course offering %d (subject: %s), skipping", 
+			logrus.Warnf("No teachers assigned to course offering %d (subject: %s), skipping",
 				offering.ID, offering.Subject.Name)
 			continue // Skip this offering instead of failing
 		}
-		
+
 		if len(offering.RoomAssignments) == 0 {
-			logrus.Warnf("No rooms assigned to course offering %d (subject: %s), skipping", 
+			logrus.Warnf("No rooms assigned to course offering %d (subject: %s), skipping",
 				offering.ID, offering.Subject.Name)
 			continue // Skip this offering instead of failing
 		}
-		
+
 		// Use first assigned teacher and room (can be enhanced for multiple assignments)
 		teacherID := offering.TeacherAssignments[0].TeacherID
 		roomID := offering.RoomAssignments[0].RoomID
-		
+
 		if isLab {
 			// Labs are typically 3-hour blocks, once per week
 			block := models.ClassBlock{
@@ -181,7 +328,7 @@ func (s *routineGenerationService) generateClassBlocks(courseOfferings []models.
 			// Theory subjects - create blocks based on credit and weekly load
 			// Apply patterns from DESIGN document
 			patterns := s.getTheoryPatterns(weeklySlots, offering.Subject.Credit)
-			
+
 			for _, slotLength := range patterns {
 				block := models.ClassBlock{
 					SubjectID:          offering.SubjectID,
@@ -196,7 +343,7 @@ func (s *routineGenerationService) generateClassBlocks(courseOfferings []models.
 			}
 		}
 	}
-	
+
 	return blocks, nil
 }
 
@@ -204,7 +351,7 @@ func (s *routineGenerationService) generateClassBlocks(courseOfferings []models.
 // Based on DESIGN_v1.md credit-to-sessions mapping
 func (s *routineGenerationService) getTheoryPatterns(weeklySlots int, credit int) []int {
 	var patterns []int
-	
+
 	switch credit {
 	case 4:
 		// Credit 4: prefer 2+2, fallback 2+1+1
@@ -246,13 +393,13 @@ func (s *routineGenerationService) getTheoryPatterns(weeklySlots int, credit int
 			}
 		}
 	}
-	
+
 	return patterns
 }
 
 func (s *routineGenerationService) initializeTimetable() models.Timetable {
 	timetable := make(models.Timetable)
-	
+
 	// Initialize for Monday to Friday (1-5), 7 slots per day
 	// Slots 1-4: Morning (9:00-12:40)
 	// Lunch break: 12:40-13:50 (not a slot)
@@ -266,7 +413,7 @@ func (s *routineGenerationService) initializeTimetable() models.Timetable {
 			}
 		}
 	}
-	
+
 	return timetable
 }
 
@@ -291,17 +438,17 @@ func (s *routineGenerationService) runBacktrackingAlgorithm(blocks []models.Clas
 		Conflicts:      []string{},
 		Suggestions:    []PlacementSuggestion{},
 	}
-	
+
 	// Sort blocks by constraint priority (most constrained first)
 	s.sortBlocksByConstraints(blocks)
-	
+
 	placedBlocks := s.backtrack(blocks, 0, timetable, sessionID)
 	report.PlacedBlocks = placedBlocks
-	
+
 	// Identify unplaced blocks
 	for i := placedBlocks; i < len(blocks); i++ {
 		report.UnplacedBlocks = append(report.UnplacedBlocks, blocks[i])
-		
+
 		// Generate suggestions for unplaced blocks
 		suggestions := s.generatePlacementSuggestions(blocks[i], timetable, sessionID)
 		report.Suggestions = append(report.Suggestions, PlacementSuggestion{
@@ -310,7 +457,7 @@ func (s *routineGenerationService) runBacktrackingAlgorithm(blocks []models.Clas
 			ConflictReasons: []string{"No available slot found"},
 		})
 	}
-	
+
 	return report
 }
 
@@ -323,12 +470,12 @@ func (s *routineGenerationService) sortBlocksByConstraints(blocks []models.Class
 		if !blocks[i].IsLab && blocks[j].IsLab {
 			return false
 		}
-		
+
 		// Then by duration (longer blocks first)
 		if blocks[i].DurationSlots != blocks[j].DurationSlots {
 			return blocks[i].DurationSlots > blocks[j].DurationSlots
 		}
-		
+
 		// Then by teacher ID (group by teacher)
 		return blocks[i].TeacherID < blocks[j].TeacherID
 	})
@@ -339,21 +486,21 @@ func (s *routineGenerationService) backtrack(blocks []models.ClassBlock, index i
 	if index >= len(blocks) {
 		return index
 	}
-	
+
 	currentBlock := blocks[index]
-	
+
 	// Get valid slot candidates for this block type
 	slotCandidates := s.getSlotCandidates(currentBlock)
-	
+
 	// Try all possible placements with scoring
 	type placement struct {
 		day   int
 		slot  int
 		score int
 	}
-	
+
 	var validPlacements []placement
-	
+
 	for day := 1; day <= 5; day++ {
 		for _, slot := range slotCandidates {
 			if s.canPlaceBlock(currentBlock, day, slot, timetable, sessionID) {
@@ -362,27 +509,38 @@ func (s *routineGenerationService) backtrack(blocks []models.ClassBlock, index i
 			}
 		}
 	}
-	
+
+	// Log if no valid placements found for debugging
+	if len(validPlacements) == 0 {
+		logrus.WithFields(logrus.Fields{
+			"block_index":        index,
+			"course_offering_id": currentBlock.CourseOfferingID,
+			"duration_slots":     currentBlock.DurationSlots,
+			"is_lab":             currentBlock.IsLab,
+		}).Debug("No valid placements found for block")
+	}
+
 	// Sort by score (higher score = better placement)
 	sort.Slice(validPlacements, func(i, j int) bool {
 		return validPlacements[i].score > validPlacements[j].score
 	})
-	
+
 	// Try placements in order of preference
 	for _, p := range validPlacements {
 		// Place the block
 		s.placeBlock(currentBlock, p.day, p.slot, timetable)
-		
+
 		// Recurse
 		result := s.backtrack(blocks, index+1, timetable, sessionID)
-		if result > index {
-			return result // Found a solution
+		if result == len(blocks) {
+			// Successfully placed all remaining blocks
+			return result
 		}
-		
-		// Backtrack
+
+		// Backtrack - either couldn't place next block or couldn't complete the schedule
 		s.removeBlock(currentBlock, p.day, p.slot, timetable)
 	}
-	
+
 	// No placement found for this block
 	return index
 }
@@ -404,7 +562,7 @@ func (s *routineGenerationService) getSlotCandidates(block models.ClassBlock) []
 // scorePlacement scores a potential placement (higher = better)
 func (s *routineGenerationService) scorePlacement(block models.ClassBlock, day int, slot int, timetable models.Timetable) int {
 	score := 100
-	
+
 	// Prefer spreading classes across the week
 	slotsOnDay := 0
 	for s := 1; s <= 7; s++ {
@@ -415,12 +573,12 @@ func (s *routineGenerationService) scorePlacement(block models.ClassBlock, day i
 		}
 	}
 	score -= slotsOnDay * 5
-	
+
 	// Labs: prefer afternoon
 	if block.IsLab && slot >= 5 {
 		score += 20
 	}
-	
+
 	// Theory: prefer morning and early afternoon
 	if !block.IsLab {
 		if slot <= 3 {
@@ -429,17 +587,17 @@ func (s *routineGenerationService) scorePlacement(block models.ClassBlock, day i
 			score += 10
 		}
 	}
-	
+
 	// Avoid late slots
 	if slot >= 7 {
 		score -= 10
 	}
-	
+
 	// Prefer Monday-Thursday over Friday
 	if day == 5 {
 		score -= 5
 	}
-	
+
 	return score
 }
 
@@ -450,12 +608,12 @@ func (s *routineGenerationService) canPlaceBlock(block models.ClassBlock, day in
 		if slot > 7 { // Maximum 7 slots per day
 			return false
 		}
-		
+
 		// Check if block spans across lunch break
 		if startSlot <= 4 && slot > 4 {
 			return false // Cannot span from morning to afternoon
 		}
-		
+
 		// Check slot availability
 		if daySlots, exists := timetable[day]; exists {
 			if slotInfo, slotExists := daySlots[slot]; slotExists && slotInfo.IsBooked {
@@ -463,7 +621,7 @@ func (s *routineGenerationService) canPlaceBlock(block models.ClassBlock, day in
 			}
 		}
 	}
-	
+
 	// Additional constraints for labs
 	if block.IsLab {
 		// Labs must be 3 consecutive slots
@@ -474,7 +632,7 @@ func (s *routineGenerationService) canPlaceBlock(block models.ClassBlock, day in
 			}
 		}
 	}
-	
+
 	// Theory constraint: max 2 slots per day for same course
 	// For 4-credit courses with 2+2 pattern, only one 2-hour block per day
 	if !block.IsLab {
@@ -490,36 +648,82 @@ func (s *routineGenerationService) canPlaceBlock(block models.ClassBlock, day in
 			}
 		}
 		// Check if adding this block would exceed the limit
-		if slotsOnDay + block.DurationSlots > 2 {
+		if slotsOnDay+block.DurationSlots > 2 {
 			return false
 		}
 	}
-	
+
 	// Check global constraints (teacher and room availability)
 	slotNumbers := make([]int, 0, block.DurationSlots)
 	for i := 0; i < block.DurationSlots; i++ {
 		slot := startSlot + i
 		slotNumbers = append(slotNumbers, slot)
 	}
-	
-	// Check teacher availability
-	teacherAvailable, _ := s.scheduleRepo.CheckTeacherAvailability(block.TeacherID, sessionID, day, slotNumbers)
+
+	// Check teacher availability (session-level - prevents double-booking across ALL departments)
+	teacherAvailable, err := s.scheduleRepo.CheckTeacherAvailability(block.TeacherID, sessionID, day, slotNumbers)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"teacher_id": block.TeacherID,
+			"session_id": sessionID,
+			"day":        day,
+			"slots":      slotNumbers,
+			"error":      err.Error(),
+		}).Error("Failed to check teacher availability")
+		return false
+	}
 	if !teacherAvailable {
+		logrus.WithFields(logrus.Fields{
+			"teacher_id": block.TeacherID,
+			"session_id": sessionID,
+			"day":        day,
+			"slots":      slotNumbers,
+		}).Debug("Teacher unavailable - already scheduled in another department/programme")
 		return false
 	}
-	
-	// Check room availability
-	roomAvailable, _ := s.scheduleRepo.CheckRoomAvailability(block.RoomID, sessionID, day, slotNumbers)
+
+	// Check room availability (session-level - prevents double-booking across ALL departments)
+	roomAvailable, err := s.scheduleRepo.CheckRoomAvailability(block.RoomID, sessionID, day, slotNumbers)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"room_id":    block.RoomID,
+			"session_id": sessionID,
+			"day":        day,
+			"slots":      slotNumbers,
+			"error":      err.Error(),
+		}).Error("Failed to check room availability")
+		return false
+	}
 	if !roomAvailable {
+		logrus.WithFields(logrus.Fields{
+			"room_id":    block.RoomID,
+			"session_id": sessionID,
+			"day":        day,
+			"slots":      slotNumbers,
+		}).Debug("Room unavailable - already booked in another department/programme")
 		return false
 	}
-	
+
 	// Check student group availability (same semester offering)
-	studentAvailable, _ := s.scheduleRepo.CheckStudentGroupAvailability(block.SemesterOfferingID, day, slotNumbers, 0)
-	if !studentAvailable {
+	studentAvailable, err := s.scheduleRepo.CheckStudentGroupAvailability(block.SemesterOfferingID, day, slotNumbers, 0)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"semester_offering_id": block.SemesterOfferingID,
+			"day":                  day,
+			"slots":                slotNumbers,
+			"error":                err.Error(),
+		}).Error("Failed to check student group availability")
 		return false
 	}
-	
+	if !studentAvailable {
+		logrus.WithFields(logrus.Fields{
+			"semester_offering_id": block.SemesterOfferingID,
+			"day":                  day,
+			"slots":                slotNumbers,
+		}).Debug("Student group unavailable - already has class scheduled")
+		return false
+	}
+
 	return true
 }
 
@@ -529,12 +733,12 @@ func (s *routineGenerationService) hasConsecutiveSlots(day int, startSlot int, r
 		if slot > 7 {
 			return false
 		}
-		
+
 		// Check if spans lunch break
 		if startSlot <= 4 && slot > 4 {
 			return false
 		}
-		
+
 		if daySlots, exists := timetable[day]; exists {
 			if slotInfo, slotExists := daySlots[slot]; slotExists && slotInfo.IsBooked {
 				return false
@@ -566,7 +770,7 @@ func (s *routineGenerationService) removeBlock(block models.ClassBlock, day int,
 
 func (s *routineGenerationService) generatePlacementSuggestions(block models.ClassBlock, timetable models.Timetable, sessionID uint) []TimeSlot {
 	var suggestions []TimeSlot
-	
+
 	// Find all possible slots where this block could be placed
 	for day := 1; day <= 5; day++ {
 		for slot := 1; slot <= 7; slot++ {
@@ -579,26 +783,24 @@ func (s *routineGenerationService) generatePlacementSuggestions(block models.Cla
 			}
 		}
 	}
-	
+
 	return suggestions
 }
 
 func (s *routineGenerationService) convertTimetableToEntries(timetable models.Timetable, scheduleRunID uint, semesterOffering *models.SemesterOffering) []models.ScheduleEntry {
 	var entries []models.ScheduleEntry
 	blockToID := make(map[*models.ClassBlock]uint)
-	blockIDCounter := uint(1)
-	
+
 	// First pass: create schedule blocks
-	processedBlocks := make(map[string]bool)
-	
+	// We use the block pointer as the key since each unique block placement has a unique pointer
+	processedBlocks := make(map[*models.ClassBlock]bool)
+
 	for day := 1; day <= 5; day++ {
 		for slot := 1; slot <= 7; slot++ {
 			if slotInfo, exists := timetable[day][slot]; exists && slotInfo.IsBooked && slotInfo.Block != nil {
-				// Create a unique key for this block placement
-				blockKey := fmt.Sprintf("%d-%d-%d-%d", slotInfo.Block.CourseOfferingID, day, slot, slotInfo.Block.DurationSlots)
-				
-				// Only create schedule block once for multi-slot blocks
-				if !processedBlocks[blockKey] {
+				// Only create schedule block once per unique block instance
+				// Multi-slot blocks share the same pointer across all their slots
+				if !processedBlocks[slotInfo.Block] {
 					scheduleBlock := models.ScheduleBlock{
 						ScheduleRunID:    scheduleRunID,
 						CourseOfferingID: slotInfo.Block.CourseOfferingID,
@@ -609,42 +811,44 @@ func (s *routineGenerationService) convertTimetableToEntries(timetable models.Ti
 						SlotLength:       slotInfo.Block.DurationSlots,
 						IsLab:            slotInfo.Block.IsLab,
 					}
-					
+
 					if err := s.scheduleRepo.CreateScheduleBlock(&scheduleBlock); err == nil {
 						blockToID[slotInfo.Block] = scheduleBlock.ID
-						processedBlocks[blockKey] = true
+						processedBlocks[slotInfo.Block] = true
 					}
 				}
 			}
 		}
 	}
-	
-	// Second pass: create schedule entries
+
+	// Second pass: create schedule entries for each occupied slot
 	for day := 1; day <= 5; day++ {
 		for slot := 1; slot <= 7; slot++ {
 			if slotInfo, exists := timetable[day][slot]; exists && slotInfo.IsBooked && slotInfo.Block != nil {
-				blockID := blockToID[slotInfo.Block]
-				if blockID == 0 {
-					blockID = blockIDCounter
-					blockIDCounter++
+				// Get the block ID from the map (should always exist since we created it in first pass)
+				blockID, exists := blockToID[slotInfo.Block]
+				if !exists {
+					// This should never happen, but log a warning if it does
+					logrus.Warnf("Block ID not found for block at day %d, slot %d", day, slot)
+					continue
 				}
-				
+
 				entry := models.ScheduleEntry{
-					ScheduleRunID:        scheduleRunID,
-					SemesterOfferingID:   slotInfo.Block.SemesterOfferingID,
-					SessionID:            semesterOffering.SessionID,
-					CourseOfferingID:     slotInfo.Block.CourseOfferingID,
-					TeacherID:            slotInfo.Block.TeacherID,
-					RoomID:               slotInfo.Block.RoomID,
-					DayOfWeek:            day,
-					SlotNumber:           slot,
-					BlockID:              &blockID,
+					ScheduleRunID:      scheduleRunID,
+					SemesterOfferingID: slotInfo.Block.SemesterOfferingID,
+					SessionID:          semesterOffering.SessionID,
+					CourseOfferingID:   slotInfo.Block.CourseOfferingID,
+					TeacherID:          slotInfo.Block.TeacherID,
+					RoomID:             slotInfo.Block.RoomID,
+					DayOfWeek:          day,
+					SlotNumber:         slot,
+					BlockID:            &blockID,
 				}
 				entries = append(entries, entry)
 			}
 		}
 	}
-	
+
 	return entries
 }
 
@@ -654,11 +858,11 @@ func (s *routineGenerationService) CommitScheduleRun(scheduleRunID uint) error {
 	if err != nil {
 		return fmt.Errorf("failed to get schedule run: %w", err)
 	}
-	
+
 	if run.Status != "DRAFT" {
 		return errors.New("only draft schedule runs can be committed")
 	}
-	
+
 	// Commit the schedule run
 	return s.scheduleRepo.CommitScheduleRun(scheduleRunID)
 }
@@ -669,16 +873,16 @@ func (s *routineGenerationService) CancelScheduleRun(scheduleRunID uint) error {
 	if err != nil {
 		return fmt.Errorf("failed to get schedule run: %w", err)
 	}
-	
+
 	if run.Status == "COMMITTED" {
 		return errors.New("committed schedule runs cannot be cancelled")
 	}
-	
+
 	// Delete schedule entries
 	if err := s.scheduleRepo.DeleteScheduleEntriesByRun(scheduleRunID); err != nil {
 		return fmt.Errorf("failed to delete schedule entries: %w", err)
 	}
-	
+
 	// Update status to cancelled
 	run.Status = "CANCELLED"
 	return s.scheduleRepo.UpdateScheduleRun(run)

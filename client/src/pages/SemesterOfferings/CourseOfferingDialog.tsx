@@ -1,49 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Grid,
-  Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Typography,
-  Box,
-  TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
-  Chip,
-  Tooltip,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-} from '@mui/material';
-import {
-  Add,
-  Delete,
-  Person,
-  Room,
-  School,
-  Edit,
-} from '@mui/icons-material';
+import { Plus, Trash2, User, DoorOpen, GraduationCap, Pencil, X } from 'lucide-react';
 import { type SemesterOffering, type CourseOffering, type Subject, type Teacher, type Room as RoomType } from '../../types/models';
 import { semesterOfferingService, type CreateCourseOfferingRequest, type AssignTeacherRequest, type AssignRoomRequest } from '../../services/semesterOfferingService';
 import { subjectService } from '../../services/subjectService';
 import { teacherService } from '../../services/teacherService';
 import { roomService } from '../../services/roomService';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
+import { Button } from '../../components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../../components/ui/dialog';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
+import { Badge } from '../../components/ui/badge';
+import { Alert } from '../../components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../components/ui/tooltip';
+import { AlertCircle } from 'lucide-react';
 
 interface CourseOfferingDialogProps {
   open: boolean;
@@ -218,385 +214,397 @@ const CourseOfferingDialog: React.FC<CourseOfferingDialogProps> = ({
   if (loading && open) return <LoadingSpinner />;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-      <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">
-            Manage Course Offerings
-          </Typography>
-          <Box>
-            <Chip 
-              label={`${semesterOffering.programme?.name}`} 
-              size="small" 
-              color="primary"
-              sx={{ mr: 1 }}
-            />
-            <Chip 
-              label={getSemesterLabel(semesterOffering.semester_number)} 
-              size="small"
-            />
-          </Box>
-        </Box>
-      </DialogTitle>
-      <DialogContent>
-        {error && (
-          <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex justify-between items-center">
+            <DialogTitle>Manage Course Offerings</DialogTitle>
+            <div className="flex gap-2">
+              <Badge className="bg-blue-500">
+                {semesterOffering.programme?.name}
+              </Badge>
+              <Badge variant="outline">
+                {getSemesterLabel(semesterOffering.semester_number)}
+              </Badge>
+            </div>
+          </div>
+        </DialogHeader>
 
-        {!showAddCourse && !showAssignments && (
-          <>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="subtitle1">
-                Course Offerings ({courseOfferings.length})
-              </Typography>
-              <Button
-                startIcon={<Add />}
-                variant="contained"
-                size="small"
-                onClick={() => setShowAddCourse(true)}
-              >
-                Add Course
-              </Button>
-            </Box>
+        <div className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <span className="ml-2">{error}</span>
+            </Alert>
+          )}
 
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Subject</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell align="center">Weekly Slots</TableCell>
-                    <TableCell>Teachers</TableCell>
-                    <TableCell>Rooms</TableCell>
-                    <TableCell align="center">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {courseOfferings.length === 0 ? (
+          {!showAddCourse && !showAssignments && (
+            <>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">
+                  Course Offerings ({courseOfferings.length})
+                </h3>
+                <Button size="sm" onClick={() => setShowAddCourse(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Course
+                </Button>
+              </div>
+
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={6} align="center">
-                        <Box py={3}>
-                          <School sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
-                          <Typography variant="body2" color="text.secondary">
-                            No course offerings yet
-                          </Typography>
-                        </Box>
-                      </TableCell>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead className="text-center">Weekly Slots</TableHead>
+                      <TableHead>Teachers</TableHead>
+                      <TableHead>Rooms</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
                     </TableRow>
-                  ) : (
-                    courseOfferings.map((course) => (
-                      <TableRow key={course.id}>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight="medium">
-                            {course.subject?.code} - {course.subject?.name}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={course.subject?.subject_type?.name || 'N/A'} 
-                            size="small"
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Typography variant="body2">
-                            {course.weekly_required_slots}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Box display="flex" flexDirection="column" gap={0.5}>
-                            {course.teacher_assignments?.map(ta => (
-                              <Chip
-                                key={ta.teacher_id}
-                                label={ta.teacher?.name}
-                                size="small"
-                                icon={<Person fontSize="small" />}
-                                onDelete={() => handleRemoveTeacher(course.id, ta.teacher_id)}
-                              />
-                            )) || <Typography variant="caption" color="text.secondary">No teachers assigned</Typography>}
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Box display="flex" flexDirection="column" gap={0.5}>
-                            {course.room_assignments?.map(ra => (
-                              <Chip
-                                key={ra.room_id}
-                                label={`${ra.room?.name} (${ra.room?.type})`}
-                                size="small"
-                                icon={<Room fontSize="small" />}
-                                onDelete={() => handleRemoveRoom(course.id, ra.room_id)}
-                              />
-                            )) || <Typography variant="caption" color="text.secondary">No rooms assigned</Typography>}
-                          </Box>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Tooltip title="Manage Assignments">
-                            <IconButton
-                              size="small"
-                              onClick={() => {
-                                setSelectedCourse(course);
-                                setShowAssignments(true);
-                              }}
-                              color="primary"
-                            >
-                              <Edit />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Remove Course">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleRemoveCourse(course.id)}
-                              color="error"
-                            >
-                              <Delete />
-                            </IconButton>
-                          </Tooltip>
+                  </TableHeader>
+                  <TableBody>
+                    {courseOfferings.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8">
+                          <GraduationCap className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">No course offerings yet</p>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </>
-        )}
-
-        {showAddCourse && (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Add Course Offering
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel>Subject</InputLabel>
-                  <Select
-                    value={courseFormData.subject_id || ''}
-                    onChange={(e) => setCourseFormData(prev => ({ ...prev, subject_id: Number(e.target.value) }))}
-                    label="Subject"
-                    required
-                  >
-                    <MenuItem value="">Select Subject</MenuItem>
-                    {subjects.map(subject => (
-                      <MenuItem key={subject.id} value={subject.id}>
-                        {subject.code} - {subject.name} ({subject.subject_type?.name})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Weekly Required Slots"
-                  type="number"
-                  value={courseFormData.weekly_required_slots}
-                  onChange={(e) => setCourseFormData(prev => ({ ...prev, weekly_required_slots: Number(e.target.value) }))}
-                  inputProps={{ min: 1, max: 10 }}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Required Pattern (e.g., 2+1)"
-                  value={courseFormData.required_pattern}
-                  onChange={(e) => setCourseFormData(prev => ({ ...prev, required_pattern: e.target.value }))}
-                  helperText="Optional: Specify slot pattern"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel>Preferred Room</InputLabel>
-                  <Select
-                    value={courseFormData.preferred_room_id || ''}
-                    onChange={(e) => setCourseFormData(prev => ({ ...prev, preferred_room_id: e.target.value ? Number(e.target.value) : null }))}
-                    label="Preferred Room"
-                  >
-                    <MenuItem value="">No Preference (Auto-assign)</MenuItem>
-                    {rooms.map(room => (
-                      <MenuItem key={room.id} value={room.id}>
-                        {room.name} ({room.type}, Capacity: {room.capacity})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel>Assign Teachers</InputLabel>
-                  <Select
-                    multiple
-                    value={courseFormData.teacher_ids}
-                    onChange={(e) => setCourseFormData(prev => ({ ...prev, teacher_ids: e.target.value as number[] }))}
-                    label="Assign Teachers"
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {(selected as number[]).map((value) => {
-                          const teacher = teachers.find(t => t.id === value);
-                          return teacher ? (
-                            <Chip key={value} label={teacher.name} size="small" />
-                          ) : null;
-                        })}
-                      </Box>
+                    ) : (
+                      courseOfferings.map((course) => (
+                        <TableRow key={course.id}>
+                          <TableCell>
+                            <p className="font-medium text-sm">
+                              {course.subject?.code} - {course.subject?.name}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {course.subject?.subject_type?.name || 'N/A'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className="text-sm">{course.weekly_required_slots}</span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              {course.teacher_assignments && course.teacher_assignments.length > 0 ? (
+                                course.teacher_assignments.map(ta => (
+                                  <Badge key={ta.teacher_id} variant="secondary" className="gap-1">
+                                    <User className="h-3 w-3" />
+                                    {ta.teacher?.name}
+                                    <X
+                                      className="h-3 w-3 cursor-pointer hover:text-red-600"
+                                      onClick={() => handleRemoveTeacher(course.id, ta.teacher_id)}
+                                    />
+                                  </Badge>
+                                ))
+                              ) : (
+                                <span className="text-xs text-gray-500">No teachers assigned</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              {course.room_assignments && course.room_assignments.length > 0 ? (
+                                course.room_assignments.map(ra => (
+                                  <Badge key={ra.room_id} variant="secondary" className="gap-1">
+                                    <DoorOpen className="h-3 w-3" />
+                                    {ra.room?.name} ({ra.room?.type})
+                                    <X
+                                      className="h-3 w-3 cursor-pointer hover:text-red-600"
+                                      onClick={() => handleRemoveRoom(course.id, ra.room_id)}
+                                    />
+                                  </Badge>
+                                ))
+                              ) : (
+                                <span className="text-xs text-gray-500">No rooms assigned</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex justify-center gap-2">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedCourse(course);
+                                        setShowAssignments(true);
+                                      }}
+                                    >
+                                      <Pencil className="h-4 w-4 text-blue-600" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Manage Assignments</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRemoveCourse(course.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-red-600" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Remove Course</TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
                     )}
-                  >
-                    {teachers.map(teacher => (
-                      <MenuItem key={teacher.id} value={teacher.id}>
-                        {teacher.name} ({teacher.initials})
-                      </MenuItem>
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+
+          {showAddCourse && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Add Course Offering</h3>
+
+              <div className="space-y-2">
+                <Label htmlFor="subject">Subject</Label>
+                <Select
+                  value={courseFormData.subject_id.toString()}
+                  onValueChange={(value) => setCourseFormData(prev => ({ ...prev, subject_id: Number(value) }))}
+                >
+                  <SelectTrigger id="subject">
+                    <SelectValue placeholder="Select Subject" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Select Subject</SelectItem>
+                    {subjects.map(subject => (
+                      <SelectItem key={subject.id} value={subject.id.toString()}>
+                        {subject.code} - {subject.name} ({subject.subject_type?.name})
+                      </SelectItem>
                     ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Notes"
-                  multiline
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="slots">Weekly Required Slots</Label>
+                  <Input
+                    id="slots"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={courseFormData.weekly_required_slots}
+                    onChange={(e) => setCourseFormData(prev => ({ ...prev, weekly_required_slots: Number(e.target.value) }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pattern">Required Pattern (e.g., 2+1)</Label>
+                  <Input
+                    id="pattern"
+                    value={courseFormData.required_pattern}
+                    onChange={(e) => setCourseFormData(prev => ({ ...prev, required_pattern: e.target.value }))}
+                    placeholder="Optional: Specify slot pattern"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="preferred-room">Preferred Room</Label>
+                <Select
+                  value={courseFormData.preferred_room_id?.toString() || '0'}
+                  onValueChange={(value) => setCourseFormData(prev => ({ ...prev, preferred_room_id: value === '0' ? null : Number(value) }))}
+                >
+                  <SelectTrigger id="preferred-room">
+                    <SelectValue placeholder="No Preference (Auto-assign)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">No Preference (Auto-assign)</SelectItem>
+                    {rooms.map(room => (
+                      <SelectItem key={room.id} value={room.id.toString()}>
+                        {room.name} ({room.type}, Capacity: {room.capacity})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Assign Teachers (Select multiple)</Label>
+                <div className="border rounded-lg p-4 space-y-2 max-h-40 overflow-y-auto">
+                  {teachers.map(teacher => (
+                    <label key={teacher.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={courseFormData.teacher_ids.includes(teacher.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setCourseFormData(prev => ({ ...prev, teacher_ids: [...prev.teacher_ids, teacher.id] }));
+                          } else {
+                            setCourseFormData(prev => ({ ...prev, teacher_ids: prev.teacher_ids.filter(id => id !== teacher.id) }));
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm">{teacher.name} ({teacher.initials})</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <textarea
+                  id="notes"
                   rows={2}
                   value={courseFormData.notes}
                   onChange={(e) => setCourseFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full px-3 py-2 border rounded-md"
                 />
-              </Grid>
-              <Grid item xs={12}>
-                <Box display="flex" gap={2}>
-                  <Button onClick={() => setShowAddCourse(false)}>
-                    Cancel
-                  </Button>
-                  <Button variant="contained" onClick={handleAddCourse}>
-                    Add Course
-                  </Button>
-                </Box>
-              </Grid>
-            </Grid>
-          </Box>
-        )}
+              </div>
 
-        {showAssignments && selectedCourse && (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Manage Assignments: {selectedCourse.subject?.name}
-            </Typography>
-            
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Teacher Assignments
-                </Typography>
-                <Box display="flex" gap={1} mb={2}>
-                  <FormControl size="small" sx={{ flex: 1 }}>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowAddCourse(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddCourse}>
+                  Add Course
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {showAssignments && selectedCourse && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">
+                Manage Assignments: {selectedCourse.subject?.name}
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-medium">Teacher Assignments</h4>
+                  <div className="flex gap-2">
                     <Select
-                      value={teacherAssignment.teacher_id || ''}
-                      onChange={(e) => setTeacherAssignment(prev => ({ ...prev, teacher_id: Number(e.target.value) }))}
-                      displayEmpty
+                      value={teacherAssignment.teacher_id.toString()}
+                      onValueChange={(value) => setTeacherAssignment(prev => ({ ...prev, teacher_id: Number(value) }))}
                     >
-                      <MenuItem value="">Select Teacher</MenuItem>
-                      {teachers.map(teacher => (
-                        <MenuItem key={teacher.id} value={teacher.id}>
-                          {teacher.name}
-                        </MenuItem>
-                      ))}
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select Teacher" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">Select Teacher</SelectItem>
+                        {teachers.map(teacher => (
+                          <SelectItem key={teacher.id} value={teacher.id.toString()}>
+                            {teacher.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
-                  </FormControl>
-                  <TextField
-                    size="small"
-                    label="Weight"
-                    type="number"
-                    value={teacherAssignment.weight}
-                    onChange={(e) => setTeacherAssignment(prev => ({ ...prev, weight: Number(e.target.value) }))}
-                    inputProps={{ min: 0.1, max: 1, step: 0.1 }}
-                    sx={{ width: 100 }}
-                  />
-                  <Button variant="contained" onClick={handleAssignTeacher}>
-                    Assign
-                  </Button>
-                </Box>
-                <List>
-                  {selectedCourse.teacher_assignments?.map(ta => (
-                    <ListItem key={ta.teacher_id}>
-                      <ListItemText
-                        primary={ta.teacher?.name}
-                        secondary={`Weight: ${ta.weight}`}
-                      />
-                      <ListItemSecondaryAction>
-                        <IconButton edge="end" onClick={() => handleRemoveTeacher(selectedCourse.id, ta.teacher_id)}>
-                          <Delete />
-                        </IconButton>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                  ))}
-                </List>
-              </Grid>
+                    <Input
+                      type="number"
+                      min={0.1}
+                      max={1}
+                      step={0.1}
+                      value={teacherAssignment.weight}
+                      onChange={(e) => setTeacherAssignment(prev => ({ ...prev, weight: Number(e.target.value) }))}
+                      className="w-24"
+                      placeholder="Weight"
+                    />
+                    <Button onClick={handleAssignTeacher}>
+                      Assign
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {selectedCourse.teacher_assignments?.map(ta => (
+                      <div key={ta.teacher_id} className="flex items-center justify-between p-2 border rounded">
+                        <div>
+                          <p className="text-sm font-medium">{ta.teacher?.name}</p>
+                          <p className="text-xs text-gray-500">Weight: {ta.weight}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveTeacher(selectedCourse.id, ta.teacher_id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-              <Grid item xs={12} md={6}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Room Assignments
-                </Typography>
-                <Box display="flex" gap={1} mb={2}>
-                  <FormControl size="small" sx={{ flex: 1 }}>
+                <div className="space-y-4">
+                  <h4 className="font-medium">Room Assignments</h4>
+                  <div className="flex gap-2">
                     <Select
-                      value={roomAssignment.room_id || ''}
-                      onChange={(e) => setRoomAssignment(prev => ({ ...prev, room_id: Number(e.target.value) }))}
-                      displayEmpty
+                      value={roomAssignment.room_id.toString()}
+                      onValueChange={(value) => setRoomAssignment(prev => ({ ...prev, room_id: Number(value) }))}
                     >
-                      <MenuItem value="">Select Room</MenuItem>
-                      {rooms.map(room => (
-                        <MenuItem key={room.id} value={room.id}>
-                          {room.name} ({room.type})
-                        </MenuItem>
-                      ))}
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select Room" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">Select Room</SelectItem>
+                        {rooms.map(room => (
+                          <SelectItem key={room.id} value={room.id.toString()}>
+                            {room.name} ({room.type})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
-                  </FormControl>
-                  <TextField
-                    size="small"
-                    label="Priority"
-                    type="number"
-                    value={roomAssignment.priority}
-                    onChange={(e) => setRoomAssignment(prev => ({ ...prev, priority: Number(e.target.value) }))}
-                    inputProps={{ min: 1, max: 10 }}
-                    sx={{ width: 100 }}
-                  />
-                  <Button variant="contained" onClick={handleAssignRoom}>
-                    Assign
-                  </Button>
-                </Box>
-                <List>
-                  {selectedCourse.room_assignments?.map(ra => (
-                    <ListItem key={ra.room_id}>
-                      <ListItemText
-                        primary={`${ra.room?.name} (${ra.room?.type})`}
-                        secondary={`Priority: ${ra.priority}, Capacity: ${ra.room?.capacity}`}
-                      />
-                      <ListItemSecondaryAction>
-                        <IconButton edge="end" onClick={() => handleRemoveRoom(selectedCourse.id, ra.room_id)}>
-                          <Delete />
-                        </IconButton>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                  ))}
-                </List>
-              </Grid>
-            </Grid>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={roomAssignment.priority}
+                      onChange={(e) => setRoomAssignment(prev => ({ ...prev, priority: Number(e.target.value) }))}
+                      className="w-24"
+                      placeholder="Priority"
+                    />
+                    <Button onClick={handleAssignRoom}>
+                      Assign
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {selectedCourse.room_assignments?.map(ra => (
+                      <div key={ra.room_id} className="flex items-center justify-between p-2 border rounded">
+                        <div>
+                          <p className="text-sm font-medium">{ra.room?.name} ({ra.room?.type})</p>
+                          <p className="text-xs text-gray-500">Priority: {ra.priority}, Capacity: {ra.room?.capacity}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveRoom(selectedCourse.id, ra.room_id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
-            <Box mt={3}>
               <Button onClick={() => {
                 setShowAssignments(false);
                 setSelectedCourse(null);
               }}>
                 Back to Courses
               </Button>
-            </Box>
-          </Box>
-        )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button onClick={onClose}>
+            Close
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>
-          Close
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 };

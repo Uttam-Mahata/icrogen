@@ -15,13 +15,9 @@ build:
 run:
 	go run ./cmd/main.go
 
-# Run the application with migrations
-run-migrate:
-	go run ./cmd/main.go -migrate
-
-# Run the application with migrations (using env var)
-run-with-env-migrate:
-	RUN_MIGRATIONS=true go run ./cmd/main.go
+# Run database migrations
+migrate:
+	go run ./cmd/migrate/main.go
 
 # Run tests
 test:
@@ -91,9 +87,8 @@ build-prod:
 help:
 	@echo "Available commands:"
 	@echo "  build        - Build the application"
-	@echo "  run          - Run the application locally (no migrations)"
-	@echo "  run-migrate  - Run the application with database migrations"
-	@echo "  run-with-env-migrate - Run with migrations using environment variable"
+	@echo "  run          - Run the application locally"
+	@echo "  migrate      - Run database migrations"
 	@echo "  test         - Run tests"
 	@echo "  test-coverage- Run tests with coverage report"
 	@echo "  clean        - Clean build artifacts"

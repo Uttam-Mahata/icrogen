@@ -159,7 +159,7 @@ func (s *Server) setupRoutes() {
 			semesterOfferings.GET("/:id", semesterOfferingHandler.GetSemesterOffering)
 			semesterOfferings.PUT("/:id", semesterOfferingHandler.UpdateSemesterOffering)
 			semesterOfferings.DELETE("/:id", semesterOfferingHandler.DeleteSemesterOffering)
-			
+
 			// Course offering management within a semester offering
 			semesterOfferings.GET("/:id/course-offerings", semesterOfferingHandler.GetCourseOfferings)
 			semesterOfferings.POST("/:id/course-offerings", semesterOfferingHandler.AddCourseOffering)
@@ -174,6 +174,7 @@ func (s *Server) setupRoutes() {
 		routines := api.Group("/routines")
 		{
 			routines.POST("/generate", routineHandler.GenerateRoutine)
+			routines.POST("/generate-bulk", routineHandler.GenerateBulkRoutines)
 			routines.GET("/:id", routineHandler.GetScheduleRun)
 			routines.GET("/semester-offering/:semester_offering_id", routineHandler.GetScheduleRunsBySemesterOffering)
 			routines.POST("/:id/commit", routineHandler.CommitScheduleRun)
