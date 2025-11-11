@@ -18,14 +18,26 @@ import {
   Save,
   History,
   Loader2,
+  XCircle,
+  AlertCircle,
+  Zap,
 } from 'lucide-react';
 import {
   type SemesterOffering,
   type ScheduleRun,
   type ScheduleEntry,
+  type Session,
+  type Department,
 } from '../../types/models';
 import { semesterOfferingService } from '../../services/semesterOfferingService';
-import { routineService, type GenerateRoutineRequest } from '../../services/routineService';
+import {
+  routineService,
+  type GenerateRoutineRequest,
+  type BulkGenerationResponse,
+  type BulkGenerationResult,
+} from '../../services/routineService';
+import { sessionService } from '../../services/sessionService';
+import { departmentService } from '../../services/departmentService';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import ErrorAlert from '../../components/Common/ErrorAlert';
 import { Button } from '../../components/ui/button';
@@ -60,6 +72,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../components/ui/tooltip';
+import { Label } from '../../components/ui/label';
 import { cn } from '../../lib/utils';
 
 const RoutineGenerator: React.FC = () => {
@@ -78,8 +91,20 @@ const RoutineGenerator: React.FC = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [expandedCourses, setExpandedCourses] = useState(false);
 
+  // Bulk generation state
+  const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedSession, setSelectedSession] = useState<number | ''>('');
+  const [selectedParity, setSelectedParity] = useState<'ODD' | 'EVEN' | ''>('');
+  const [selectedDepartment, setSelectedDepartment] = useState<number | ''>('');
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [bulkResults, setBulkResults] = useState<BulkGenerationResponse | null>(null);
+
   useEffect(() => {
     fetchSemesterOfferings();
+    fetchSessions();
+    fetchDepartments();
   }, []);
 
   useEffect(() => {
@@ -104,6 +129,24 @@ const RoutineGenerator: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Failed to fetch semester offerings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSessions = async () => {
+    try {
+      const data = await sessionService.getAll();
+      setSessions(data);
+    } catch (err) {
+      console.error('Failed to fetch sessions:', err);
+    }
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const data = await departmentService.getAll();
+      setDepartments(data.filter(d => d.is_active));
+    } catch (err) {
+      console.error('Failed to fetch departments:', err);
     }
   };
 
@@ -250,6 +293,51 @@ const RoutineGenerator: React.FC = () => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleBulkGenerate = async () => {
+    if (!selectedSession || !selectedParity) {
+      setError('Please select a session and parity');
+      return;
+    }
+
+    setBulkGenerating(true);
+    setError(null);
+    setSuccess(null);
+    setBulkResults(null);
+
+    try {
+      const result = await routineService.generateBulkRoutines({
+        session_id: selectedSession as number,
+        parity: selectedParity as 'ODD' | 'EVEN',
+        department_id: selectedDepartment ? (selectedDepartment as number) : undefined,
+      });
+
+      setBulkResults(result);
+      setSuccess(`Bulk generation completed! ${result.summary.successful} successful, ${result.summary.partial} partial, ${result.summary.failed} failed`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate bulk routines');
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string): 'default' | 'secondary' | 'destructive' => {
+    switch (status) {
+      case 'SUCCESS': return 'default';
+      case 'PARTIAL': return 'secondary';
+      case 'FAILED': return 'destructive';
+      default: return 'secondary';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'SUCCESS': return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'PARTIAL': return <AlertCircle className="h-4 w-4 text-yellow-600" />;
+      case 'FAILED': return <XCircle className="h-4 w-4 text-red-600" />;
+      default: return null;
+    }
   };
 
   const renderScheduleByDay = () => {
@@ -442,9 +530,39 @@ const RoutineGenerator: React.FC = () => {
         <CardContent className="pt-6">
           <h2 className="text-2xl font-bold mb-6">Routine Generator</h2>
 
-          {/* Stepper */}
-          <div className="flex items-center justify-between mb-6">
-            {steps.map((label, index) => (
+          {/* Tabs */}
+          <div className="flex gap-2 border-b mb-6">
+            <button
+              onClick={() => setActiveTab('single')}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 border-b-2 transition-colors',
+                activeTab === 'single'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              )}
+            >
+              <Play className="h-4 w-4" />
+              Single Generation
+            </button>
+            <button
+              onClick={() => setActiveTab('bulk')}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 border-b-2 transition-colors',
+                activeTab === 'bulk'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              )}
+            >
+              <Zap className="h-4 w-4" />
+              Bulk Generation
+            </button>
+          </div>
+
+          {activeTab === 'single' && (
+            <>
+              {/* Stepper */}
+              <div className="flex items-center justify-between mb-6">
+                {steps.map((label, index) => (
               <div key={label} className="flex items-center flex-1">
                 <div className="flex flex-col items-center">
                   <div
@@ -556,6 +674,208 @@ const RoutineGenerator: React.FC = () => {
                   )}
                 </Button>
               </div>
+            </div>
+          )}
+            </>
+          )}
+
+          {activeTab === 'bulk' && (
+            <div className="space-y-6">
+              <Alert className="bg-blue-50 border-blue-200">
+                <Info className="h-4 w-4 text-blue-600" />
+                <div className="ml-2">
+                  <p className="text-sm text-blue-800">
+                    Bulk generation will create routines for all semester offerings matching the selected session and parity.
+                    You can optionally filter by department.
+                  </p>
+                </div>
+              </Alert>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label className="block text-sm font-medium mb-2">Session</Label>
+                  <Select
+                    value={selectedSession.toString()}
+                    onValueChange={(value) => setSelectedSession(value === '' ? '' : Number(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a session" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Select a session</SelectItem>
+                      {sessions.map((session) => (
+                        <SelectItem key={session.id} value={session.id.toString()}>
+                          {session.name} {session.academic_year} ({session.parity})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="block text-sm font-medium mb-2">Parity</Label>
+                  <Select
+                    value={selectedParity}
+                    onValueChange={(value) => setSelectedParity(value as 'ODD' | 'EVEN' | '')}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select parity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Select parity</SelectItem>
+                      <SelectItem value="ODD">ODD (Sem 1, 3, 5, 7)</SelectItem>
+                      <SelectItem value="EVEN">EVEN (Sem 2, 4, 6, 8)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="block text-sm font-medium mb-2">Department (Optional)</Label>
+                  <Select
+                    value={selectedDepartment.toString()}
+                    onValueChange={(value) => setSelectedDepartment(value === '' ? '' : Number(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Departments" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Departments</SelectItem>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id.toString()}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex justify-center pt-4">
+                <Button
+                  size="lg"
+                  onClick={handleBulkGenerate}
+                  disabled={!selectedSession || !selectedParity || bulkGenerating}
+                >
+                  {bulkGenerating ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Generating All Routines...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="mr-2 h-5 w-5" />
+                      Generate All Routines
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {bulkResults && (
+                <div className="space-y-4 mt-6">
+                  {/* Summary Statistics */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-gray-900">{bulkResults.summary.total}</p>
+                          <p className="text-sm text-gray-600">Total</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-green-600">{bulkResults.summary.successful}</p>
+                          <p className="text-sm text-gray-600">Successful</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-yellow-600">{bulkResults.summary.partial}</p>
+                          <p className="text-sm text-gray-600">Partial</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-red-600">{bulkResults.summary.failed}</p>
+                          <p className="text-sm text-gray-600">Failed</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Results Table */}
+                  <Card>
+                    <CardContent className="pt-6">
+                      <h3 className="text-lg font-semibold mb-4">Generation Results</h3>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Semester Offering</TableHead>
+                              <TableHead className="text-center">Status</TableHead>
+                              <TableHead className="text-center">Placed Blocks</TableHead>
+                              <TableHead className="text-center">Total Blocks</TableHead>
+                              <TableHead className="text-center">Success Rate</TableHead>
+                              <TableHead>Error Message</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {bulkResults.results.map((result, index) => {
+                              const successRate = result.total_blocks > 0
+                                ? Math.round((result.placed_blocks / result.total_blocks) * 100)
+                                : 0;
+
+                              return (
+                                <TableRow key={index}>
+                                  <TableCell className="font-medium">
+                                    {result.semester_offering_name}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <div className="flex items-center justify-center gap-2">
+                                      {getStatusIcon(result.status)}
+                                      <Badge variant={getStatusBadgeVariant(result.status)}>
+                                        {result.status}
+                                      </Badge>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {result.placed_blocks}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {result.total_blocks}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <span className={cn(
+                                      'font-medium',
+                                      successRate === 100 ? 'text-green-600' :
+                                      successRate >= 80 ? 'text-yellow-600' :
+                                      'text-red-600'
+                                    )}>
+                                      {successRate}%
+                                    </span>
+                                  </TableCell>
+                                  <TableCell>
+                                    {result.error_message && (
+                                      <span className="text-xs text-red-600">
+                                        {result.error_message}
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

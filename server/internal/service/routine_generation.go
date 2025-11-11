@@ -15,10 +15,21 @@ import (
 // RoutineGenerationService interface for routine generation business logic
 type RoutineGenerationService interface {
 	GenerateRoutine(semesterOfferingID uint) (*models.ScheduleRun, error)
+	GenerateBulkRoutines(sessionID uint, parity string, departmentID *uint) ([]*BulkGenerationResult, error)
 	CommitScheduleRun(scheduleRunID uint) error
 	CancelScheduleRun(scheduleRunID uint) error
 	GetScheduleRun(scheduleRunID uint) (*models.ScheduleRun, error)
 	GetScheduleRunsBySemesterOffering(semesterOfferingID uint) ([]models.ScheduleRun, error)
+}
+
+// BulkGenerationResult represents the result of generating a single routine in bulk operation
+type BulkGenerationResult struct {
+	SemesterOfferingID   uint
+	SemesterOfferingName string
+	ScheduleRun          *models.ScheduleRun
+	Error                error
+	PlacedBlocks         int
+	TotalBlocks          int
 }
 
 type routineGenerationService struct {
@@ -177,8 +188,96 @@ func (s *routineGenerationService) GenerateRoutine(semesterOfferingID uint) (*mo
 	return s.scheduleRepo.GetScheduleRunByID(scheduleRun.ID)
 }
 
+// GenerateBulkRoutines generates routines for multiple semester offerings based on session, parity, and optional department filter
+func (s *routineGenerationService) GenerateBulkRoutines(sessionID uint, parity string, departmentID *uint) ([]*BulkGenerationResult, error) {
+	logrus.WithFields(logrus.Fields{
+		"session_id":    sessionID,
+		"parity":        parity,
+		"department_id": departmentID,
+	}).Info("Starting bulk routine generation")
+
+	// Get all semester offerings for the session
+	semesterOfferings, err := s.semesterOfferingRepo.GetBySession(sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get semester offerings: %w", err)
+	}
+
+	// Filter by parity (ODD/EVEN semesters)
+	var filtered []models.SemesterOffering
+	for _, so := range semesterOfferings {
+		// Determine parity: Odd semesters are 1,3,5,7; Even semesters are 2,4,6,8
+		isOdd := so.SemesterNumber%2 == 1
+		matchesParity := (parity == "ODD" && isOdd) || (parity == "EVEN" && !isOdd)
+
+		// Apply department filter if provided
+		matchesDepartment := departmentID == nil || so.DepartmentID == *departmentID
+
+		if matchesParity && matchesDepartment {
+			filtered = append(filtered, so)
+		}
+	}
+
+	if len(filtered) == 0 {
+		return nil, errors.New("no semester offerings found matching the criteria")
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"total_semester_offerings": len(filtered),
+		"parity":                   parity,
+	}).Info("Filtered semester offerings for bulk generation")
+
+	// Generate routines sequentially to avoid race conditions
+	results := make([]*BulkGenerationResult, 0, len(filtered))
+	for _, so := range filtered {
+		result := &BulkGenerationResult{
+			SemesterOfferingID: so.ID,
+			SemesterOfferingName: fmt.Sprintf("%s - %s - Sem %d",
+				so.Programme.Name, so.Department.Name, so.SemesterNumber),
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"semester_offering_id": so.ID,
+			"name":                 result.SemesterOfferingName,
+		}).Info("Generating routine for semester offering")
+
+		// Generate routine
+		scheduleRun, err := s.GenerateRoutine(so.ID)
+		if err != nil {
+			result.Error = err
+			logrus.WithFields(logrus.Fields{
+				"semester_offering_id": so.ID,
+				"error":                err.Error(),
+			}).Error("Failed to generate routine")
+		} else {
+			result.ScheduleRun = scheduleRun
+
+			// Parse meta to get placed/total blocks
+			var report GenerationReport
+			if err := json.Unmarshal([]byte(scheduleRun.Meta), &report); err == nil {
+				result.PlacedBlocks = report.PlacedBlocks
+				result.TotalBlocks = report.TotalBlocks
+			}
+
+			logrus.WithFields(logrus.Fields{
+				"semester_offering_id": so.ID,
+				"schedule_run_id":      scheduleRun.ID,
+				"placed_blocks":        result.PlacedBlocks,
+				"total_blocks":         result.TotalBlocks,
+			}).Info("Successfully generated routine")
+		}
+
+		results = append(results, result)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"total_generated": len(results),
+	}).Info("Bulk routine generation completed")
+
+	return results, nil
+}
+
 // countLabBlocks returns the number of lab blocks in a slice of class blocks
-func countLabBlocks(blocks []models.ClassBlock) int {
+func countLabBlocks(blocks []models.ClassBlock) int{
 	count := 0
 	for _, block := range blocks {
 		if block.IsLab {

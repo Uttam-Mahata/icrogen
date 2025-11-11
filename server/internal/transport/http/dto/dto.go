@@ -138,6 +138,32 @@ type GenerateRoutineRequest struct {
 	SemesterOfferingID uint `json:"semester_offering_id" binding:"required"`
 }
 
+type GenerateBulkRoutineRequest struct {
+	SessionID    uint   `json:"session_id" binding:"required"`
+	Parity       string `json:"parity" binding:"required,oneof=ODD EVEN"`
+	DepartmentID *uint  `json:"department_id"` // Optional: filter by department
+}
+
+type BulkRoutineGenerationResult struct {
+	SemesterOfferingID   uint   `json:"semester_offering_id"`
+	SemesterOfferingName string `json:"semester_offering_name"`
+	Status               string `json:"status"` // SUCCESS, FAILED, PARTIAL
+	ScheduleRunID        *uint  `json:"schedule_run_id,omitempty"`
+	Error                string `json:"error,omitempty"`
+	PlacedBlocks         int    `json:"placed_blocks"`
+	TotalBlocks          int    `json:"total_blocks"`
+}
+
+type BulkRoutineGenerationResponse struct {
+	TotalSemesters      int                           `json:"total_semesters"`
+	SuccessfulCount     int                           `json:"successful_count"`
+	FailedCount         int                           `json:"failed_count"`
+	PartialCount        int                           `json:"partial_count"`
+	Results             []BulkRoutineGenerationResult `json:"results"`
+	GenerationStartedAt string                        `json:"generation_started_at"`
+	GenerationEndedAt   string                        `json:"generation_ended_at"`
+}
+
 // Response DTOs
 type APIResponse struct {
 	Success bool        `json:"success"`

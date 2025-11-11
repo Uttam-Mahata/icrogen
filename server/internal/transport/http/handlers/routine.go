@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"fmt"
 	"icrogen/internal/service"
 	"icrogen/internal/transport/http/dto"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -45,6 +47,82 @@ func (h *RoutineHandler) GenerateRoutine(c *gin.Context) {
 		Success: true,
 		Message: "Routine generated successfully",
 		Data:    scheduleRun,
+	})
+}
+
+// GenerateBulkRoutines generates routines for multiple semester offerings
+func (h *RoutineHandler) GenerateBulkRoutines(c *gin.Context) {
+	var req dto.GenerateBulkRoutineRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
+			Success: false,
+			Error:   err.Error(),
+			Code:    http.StatusBadRequest,
+		})
+		return
+	}
+
+	startTime := time.Now()
+	results, err := h.routineService.GenerateBulkRoutines(req.SessionID, req.Parity, req.DepartmentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Success: false,
+			Error:   err.Error(),
+			Code:    http.StatusInternalServerError,
+		})
+		return
+	}
+	endTime := time.Now()
+
+	// Convert service results to DTO results
+	dtoResults := make([]dto.BulkRoutineGenerationResult, 0, len(results))
+	successfulCount := 0
+	failedCount := 0
+	partialCount := 0
+
+	for _, result := range results {
+		dtoResult := dto.BulkRoutineGenerationResult{
+			SemesterOfferingID:   result.SemesterOfferingID,
+			SemesterOfferingName: result.SemesterOfferingName,
+			PlacedBlocks:         result.PlacedBlocks,
+			TotalBlocks:          result.TotalBlocks,
+		}
+
+		if result.Error != nil {
+			dtoResult.Status = "FAILED"
+			dtoResult.Error = result.Error.Error()
+			failedCount++
+		} else {
+			if result.ScheduleRun != nil {
+				dtoResult.ScheduleRunID = &result.ScheduleRun.ID
+			}
+
+			if result.PlacedBlocks == result.TotalBlocks {
+				dtoResult.Status = "SUCCESS"
+				successfulCount++
+			} else {
+				dtoResult.Status = "PARTIAL"
+				partialCount++
+			}
+		}
+
+		dtoResults = append(dtoResults, dtoResult)
+	}
+
+	response := dto.BulkRoutineGenerationResponse{
+		TotalSemesters:      len(results),
+		SuccessfulCount:     successfulCount,
+		FailedCount:         failedCount,
+		PartialCount:        partialCount,
+		Results:             dtoResults,
+		GenerationStartedAt: startTime.Format(time.RFC3339),
+		GenerationEndedAt:   endTime.Format(time.RFC3339),
+	}
+
+	c.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Message: fmt.Sprintf("Bulk generation completed: %d successful, %d partial, %d failed", successfulCount, partialCount, failedCount),
+		Data:    response,
 	})
 }
 

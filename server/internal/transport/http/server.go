@@ -174,6 +174,7 @@ func (s *Server) setupRoutes() {
 		routines := api.Group("/routines")
 		{
 			routines.POST("/generate", routineHandler.GenerateRoutine)
+			routines.POST("/generate-bulk", routineHandler.GenerateBulkRoutines)
 			routines.GET("/:id", routineHandler.GetScheduleRun)
 			routines.GET("/semester-offering/:semester_offering_id", routineHandler.GetScheduleRunsBySemesterOffering)
 			routines.POST("/:id/commit", routineHandler.CommitScheduleRun)
